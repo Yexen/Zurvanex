@@ -669,11 +669,20 @@ export default function ChatInterface() {
         content: m.content
       })));
 
-      // Generate AI-based title after first exchange (using saved flag)
+      // Generate title after first exchange
       if (isFirstMessage) {
         try {
           console.log('Generating context-based title...');
-          const aiTitle = await generateTitle(firstUserMessage, response, selectedModel);
+          // Only use AI title generation for Ollama models (local)
+          // For API models, use simple fallback to avoid CORS/connectivity issues
+          let aiTitle: string;
+          if (provider === 'ollama') {
+            aiTitle = await generateTitle(firstUserMessage, response, selectedModel);
+          } else {
+            // Simple title generation: first 50 chars of user message
+            aiTitle = firstUserMessage.slice(0, 50).trim();
+            if (firstUserMessage.length > 50) aiTitle += '...';
+          }
           console.log('Generated title:', aiTitle);
           await updateConversation(conversationId, { title: aiTitle });
         } catch (titleError) {
