@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(powershell -Command \"Get-ChildItem -Path . -Exclude nul,zarvanex.zip | Compress-Archive -DestinationPath zarvanex.zip -Force\")",
-      "Bash(powershell -Command \"(Get-Item zarvanex.tar.gz).FullName\")"
+      "Bash(powershell -Command \"(Get-Item zarvanex.tar.gz).FullName\")",
+      "Bash(npm uninstall:*)"
     ],
     "deny": [],
     "ask": []

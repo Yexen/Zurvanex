@@ -7,7 +7,6 @@ import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
 import ModelSelector from './ModelSelector';
 import Login from './Login';
-import NotificationSetup from './NotificationSetup';
 import SaveMomentModal from './SaveMomentModal';
 import { sendMessage, getAvailableModels, generateTitle } from '@/lib/lmstudio';
 import { GROQ_MODELS } from '@/lib/groq';
@@ -18,8 +17,6 @@ import { COHERE_MODELS } from '@/lib/cohere';
 import type { Conversation, Message, Model } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations } from '@/hooks/useConversations';
-import { useReminders } from '@/hooks/useReminders';
-import { useProactiveAI } from '@/hooks/useProactiveAI';
 import { extractionTrigger } from '@/lib/memory/extractionTrigger';
 
 export default function ChatInterface() {
@@ -35,11 +32,7 @@ export default function ChatInterface() {
     updateConversation,
     deleteConversation,
     setMessages,
-  } = useConversations(user?.uid || null);
-
-  // Initialize notification features
-  useReminders(); // Time-aware reminders
-  useProactiveAI(); // Proactive AI chat initiations
+  } = useConversations(user?.id || null);
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [models, setModels] = useState<Model[]>([]);
@@ -886,10 +879,6 @@ export default function ChatInterface() {
 
   return (
     <div className="container">
-      {/* Notification Setup Prompt */}
-      <div data-notification-setup>
-        <NotificationSetup />
-      </div>
 
       {/* Mobile Overlay */}
       <div

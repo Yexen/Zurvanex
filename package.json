@@ -11,11 +11,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.70.1",
+    "@supabase/supabase-js": "^2.84.0",
     "@types/three": "^0.181.0",
     "@types/uuid": "^10.0.0",
     "cohere-ai": "^7.19.0",
-    "firebase": "^11.10.0",
-    "firebase-admin": "^13.6.0",
     "framer-motion": "^11.11.17",
     "groq-sdk": "^0.36.0",
     "next": "^15.0.3",

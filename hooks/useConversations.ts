@@ -1,23 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { Timestamp } from 'firebase/firestore';
+import { supabase } from '@/lib/supabase';
 import type { Conversation, Message } from '@/types';
-
-// Firestore document type
-interface ConversationDoc {
-  title: string;
-  messages: Array<{
-    id: string;
-    role: 'user' | 'assistant';
-    content: string;
-    timestamp: Timestamp;
-    images?: string[];
-  }>;
-  createdAt: Timestamp;
-  updatedAt: Timestamp;
-  modelId: string;
-}
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 export function useConversations(userId: string | null) {
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -30,52 +16,96 @@ export function useConversations(userId: string | null) {
       return;
     }
 
-    let unsubscribe: (() => void) | undefined;
+    let channel: RealtimeChannel;
 
     const setupListener = async () => {
       try {
-        const { getFirebaseDB } = await import('@/lib/firebase');
-        const { collection, query, orderBy, onSnapshot } = await import('firebase/firestore');
-        const db = getFirebaseDB();
+        // Initial fetch
+        const { data, error: fetchError } = await supabase
+          .from('conversations')
+          .select('*')
+          .eq('user_id', userId)
+          .order('updated_at', { ascending: false });
 
-        if (!db) {
-          console.warn('useConversations: Firestore not initialized');
-          setLoading(false);
-          return;
-        }
+        if (fetchError) throw fetchError;
 
-        // Reference to user's conversations collection
-        const conversationsRef = collection(db, 'users', userId, 'conversations');
-        const q = query(conversationsRef, orderBy('updatedAt', 'desc'));
+        // Convert database format to app format
+        const loadedConversations: Conversation[] = (data || []).map((row: any) => ({
+          id: row.id,
+          title: row.title,
+          messages: Array.isArray(row.messages)
+            ? (row.messages as any[]).map((msg: any) => ({
+                id: msg.id,
+                role: msg.role,
+                content: msg.content,
+                timestamp: new Date(msg.timestamp),
+                images: msg.images,
+              }))
+            : [],
+          createdAt: new Date(row.created_at),
+          updatedAt: new Date(row.updated_at),
+          modelId: row.model_id,
+        }));
 
-        // Listen for real-time updates
-        unsubscribe = onSnapshot(
-          q,
-          (snapshot) => {
-            const loadedConversations: Conversation[] = snapshot.docs.map((docSnapshot) => {
-              const data = docSnapshot.data() as ConversationDoc;
-              return {
-                id: docSnapshot.id,
-                title: data.title,
-                messages: data.messages.map((msg) => ({
-                  ...msg,
-                  timestamp: msg.timestamp?.toDate() || new Date(),
-                })),
-                createdAt: data.createdAt?.toDate() || new Date(),
-                updatedAt: data.updatedAt?.toDate() || new Date(),
-                modelId: data.modelId,
-              };
-            });
-            setConversations(loadedConversations);
-            setLoading(false);
-            setError(null);
-          },
-          (err) => {
-            console.error('Error loading conversations:', err);
-            setError(err as Error);
-            setLoading(false);
-          }
-        );
+        setConversations(loadedConversations);
+        setLoading(false);
+
+        // Set up real-time subscription
+        channel = supabase
+          .channel('conversations')
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'conversations',
+              filter: `user_id=eq.${userId}`,
+            },
+            (payload) => {
+              console.log('Conversation change:', payload);
+
+              if (payload.eventType === 'INSERT') {
+                const newConv = payload.new as any;
+                setConversations((prev) => [
+                  {
+                    id: newConv.id,
+                    title: newConv.title,
+                    messages: Array.isArray(newConv.messages) ? newConv.messages.map((msg: any) => ({
+                      ...msg,
+                      timestamp: new Date(msg.timestamp),
+                    })) : [],
+                    createdAt: new Date(newConv.created_at),
+                    updatedAt: new Date(newConv.updated_at),
+                    modelId: newConv.model_id,
+                  },
+                  ...prev,
+                ]);
+              } else if (payload.eventType === 'UPDATE') {
+                const updated = payload.new as any;
+                setConversations((prev) =>
+                  prev.map((conv) =>
+                    conv.id === updated.id
+                      ? {
+                          id: updated.id,
+                          title: updated.title,
+                          messages: Array.isArray(updated.messages) ? updated.messages.map((msg: any) => ({
+                            ...msg,
+                            timestamp: new Date(msg.timestamp),
+                          })) : [],
+                          createdAt: new Date(updated.created_at),
+                          updatedAt: new Date(updated.updated_at),
+                          modelId: updated.model_id,
+                        }
+                      : conv
+                  )
+                );
+              } else if (payload.eventType === 'DELETE') {
+                const deleted = payload.old as any;
+                setConversations((prev) => prev.filter((conv) => conv.id !== deleted.id));
+              }
+            }
+          )
+          .subscribe();
       } catch (err) {
         console.error('Error setting up conversations listener:', err);
         setError(err as Error);
@@ -86,7 +116,9 @@ export function useConversations(userId: string | null) {
     setupListener();
 
     return () => {
-      if (unsubscribe) unsubscribe();
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, [userId]);
 
@@ -99,27 +131,22 @@ export function useConversations(userId: string | null) {
 
     try {
       console.log('Creating conversation for user:', userId);
-      const { getFirebaseDB } = await import('@/lib/firebase');
-      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
-      const db = getFirebaseDB();
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          user_id: userId,
+          title: 'New Conversation',
+          model_id: modelId,
+          messages: [],
+        })
+        .select()
+        .single();
 
-      const conversationsRef = collection(db, 'users', userId, 'conversations');
-      const docRef = await addDoc(conversationsRef, {
-        title: 'New Conversation',
-        messages: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        modelId,
-      });
-      console.log('Conversation created successfully:', docRef.id);
-      return docRef.id;
+      if (error) throw error;
+      console.log('Conversation created successfully:', data.id);
+      return data.id;
     } catch (err) {
       console.error('Error creating conversation:', err);
-      console.error('Error details:', {
-        code: (err as any)?.code,
-        message: (err as any)?.message,
-        userId,
-      });
       throw err;
     }
   };
@@ -129,37 +156,44 @@ export function useConversations(userId: string | null) {
     if (!userId) return;
 
     try {
-      const { getFirebaseDB } = await import('@/lib/firebase');
-      const { doc, updateDoc, Timestamp, arrayUnion, serverTimestamp } = await import('firebase/firestore');
-      const db = getFirebaseDB();
+      // Get current conversation
+      const { data: current, error: fetchError } = await supabase
+        .from('conversations')
+        .select('messages')
+        .eq('id', conversationId)
+        .eq('user_id', userId)
+        .single();
 
-      const conversationRef = doc(db, 'users', userId, 'conversations', conversationId);
+      if (fetchError) throw fetchError;
 
-      // Clean message data - remove undefined fields
-      const cleanMessage: any = {
+      // Prepare new message
+      const cleanMessage = {
         id: message.id,
         role: message.role,
         content: message.content,
-        timestamp: Timestamp.fromDate(message.timestamp),
+        timestamp: message.timestamp.toISOString(),
+        ...(message.images && message.images.length > 0 && { images: message.images }),
       };
 
-      // Only add images if they exist
-      if (message.images && message.images.length > 0) {
-        cleanMessage.images = message.images;
-      }
+      // Append to existing messages
+      const updatedMessages = [...(Array.isArray(current.messages) ? current.messages : []), cleanMessage];
 
-      // Build update object without undefined values
+      // Update conversation
       const updateData: any = {
-        messages: arrayUnion(cleanMessage), // Use arrayUnion to append without race conditions
-        updatedAt: serverTimestamp(),
+        messages: updatedMessages,
       };
 
-      // Only add title if provided
       if (newTitle) {
         updateData.title = newTitle;
       }
 
-      await updateDoc(conversationRef, updateData);
+      const { error: updateError } = await supabase
+        .from('conversations')
+        .update(updateData)
+        .eq('id', conversationId)
+        .eq('user_id', userId);
+
+      if (updateError) throw updateError;
     } catch (err) {
       console.error('Error adding message:', err);
       throw err;
@@ -174,15 +208,17 @@ export function useConversations(userId: string | null) {
     if (!userId) return;
 
     try {
-      const { getFirebaseDB } = await import('@/lib/firebase');
-      const { doc, updateDoc, serverTimestamp } = await import('firebase/firestore');
-      const db = getFirebaseDB();
+      const updateData: any = {};
+      if (updates.title) updateData.title = updates.title;
+      if (updates.modelId) updateData.model_id = updates.modelId;
 
-      const conversationRef = doc(db, 'users', userId, 'conversations', conversationId);
-      await updateDoc(conversationRef, {
-        ...updates,
-        updatedAt: serverTimestamp(),
-      });
+      const { error } = await supabase
+        .from('conversations')
+        .update(updateData)
+        .eq('id', conversationId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
     } catch (err) {
       console.error('Error updating conversation:', err);
       throw err;
@@ -194,12 +230,13 @@ export function useConversations(userId: string | null) {
     if (!userId) return;
 
     try {
-      const { getFirebaseDB } = await import('@/lib/firebase');
-      const { doc, deleteDoc } = await import('firebase/firestore');
-      const db = getFirebaseDB();
+      const { error } = await supabase
+        .from('conversations')
+        .delete()
+        .eq('id', conversationId)
+        .eq('user_id', userId);
 
-      const conversationRef = doc(db, 'users', userId, 'conversations', conversationId);
-      await deleteDoc(conversationRef);
+      if (error) throw error;
     } catch (err) {
       console.error('Error deleting conversation:', err);
       throw err;
@@ -211,32 +248,21 @@ export function useConversations(userId: string | null) {
     if (!userId) return;
 
     try {
-      const { getFirebaseDB } = await import('@/lib/firebase');
-      const { doc, updateDoc, Timestamp, serverTimestamp } = await import('firebase/firestore');
-      const db = getFirebaseDB();
+      const cleanMessages = messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        timestamp: msg.timestamp.toISOString(),
+        ...(msg.images && msg.images.length > 0 && { images: msg.images }),
+      }));
 
-      const conversationRef = doc(db, 'users', userId, 'conversations', conversationId);
+      const { error } = await supabase
+        .from('conversations')
+        .update({ messages: cleanMessages })
+        .eq('id', conversationId)
+        .eq('user_id', userId);
 
-      // Convert messages to Firestore format
-      const cleanMessages = messages.map(msg => {
-        const cleanMessage: any = {
-          id: msg.id,
-          role: msg.role,
-          content: msg.content,
-          timestamp: Timestamp.fromDate(msg.timestamp),
-        };
-
-        if (msg.images && msg.images.length > 0) {
-          cleanMessage.images = msg.images;
-        }
-
-        return cleanMessage;
-      });
-
-      await updateDoc(conversationRef, {
-        messages: cleanMessages,
-        updatedAt: serverTimestamp(),
-      });
+      if (error) throw error;
     } catch (err) {
       console.error('Error setting messages:', err);
       throw err;

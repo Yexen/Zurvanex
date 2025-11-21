@@ -337,7 +337,7 @@ export default function Sidebar({
                   Signed in as
                 </div>
                 <div style={{ color: 'var(--gray-med)', fontSize: '14px', fontWeight: 500 }}>
-                  {user.email || user.displayName || 'User'}
+                  {user.email || 'User'}
                 </div>
               </div>
             )}

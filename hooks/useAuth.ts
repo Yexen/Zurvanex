@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { User } from 'firebase/auth';
+import { supabase } from '@/lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -11,47 +12,22 @@ export function useAuth() {
   useEffect(() => {
     console.log('useAuth: Setting up auth listener');
 
-    // Dynamically import Firebase to avoid SSR issues
-    let unsubscribe: (() => void) | undefined;
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-    const setupAuth = async () => {
-      try {
-        const { getFirebaseAuth } = await import('@/lib/firebase');
-        const { onAuthStateChanged } = await import('firebase/auth');
-        const auth = getFirebaseAuth();
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('useAuth: Auth state changed:', session?.user?.id || 'No user');
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
 
-        if (!auth) {
-          console.warn('useAuth: Firebase auth not initialized');
-          setLoading(false);
-          return;
-        }
-
-        // Listen to auth state changes (no auto anonymous sign-in)
-        unsubscribe = onAuthStateChanged(
-          auth,
-          (firebaseUser) => {
-            console.log('useAuth: Auth state changed:', firebaseUser?.uid || 'No user');
-            setUser(firebaseUser);
-            setLoading(false);
-          },
-          (err) => {
-            console.error('useAuth: Auth state change error:', err);
-            setError(err as Error);
-            setLoading(false);
-          }
-        );
-      } catch (err) {
-        console.error('useAuth: Failed to initialize auth:', err);
-        setError(err as Error);
-        setLoading(false);
-      }
-    };
-
-    setupAuth();
-
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
   // Sign in with Google
@@ -59,14 +35,15 @@ export function useAuth() {
     try {
       setLoading(true);
       setError(null);
-      const { getFirebaseAuth } = await import('@/lib/firebase');
-      const { signInWithPopup, GoogleAuthProvider } = await import('firebase/auth');
-      const auth = getFirebaseAuth();
-      if (!auth) throw new Error('Firebase auth not initialized');
-      const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      console.log('Google sign-in successful:', result.user.uid);
-      return result.user;
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+      console.log('Google sign-in initiated');
+      return data;
     } catch (err) {
       console.error('Google sign-in error:', err);
       setError(err as Error);
@@ -81,13 +58,13 @@ export function useAuth() {
     try {
       setLoading(true);
       setError(null);
-      const { getFirebaseAuth } = await import('@/lib/firebase');
-      const { signInWithEmailAndPassword } = await import('firebase/auth');
-      const auth = getFirebaseAuth();
-      if (!auth) throw new Error('Firebase auth not initialized');
-      const result = await signInWithEmailAndPassword(auth, email, password);
-      console.log('Email sign-in successful:', result.user.uid);
-      return result.user;
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) throw error;
+      console.log('Email sign-in successful:', data.user?.id);
+      return data.user;
     } catch (err) {
       console.error('Email sign-in error:', err);
       setError(err as Error);
@@ -102,13 +79,13 @@ export function useAuth() {
     try {
       setLoading(true);
       setError(null);
-      const { getFirebaseAuth } = await import('@/lib/firebase');
-      const { createUserWithEmailAndPassword } = await import('firebase/auth');
-      const auth = getFirebaseAuth();
-      if (!auth) throw new Error('Firebase auth not initialized');
-      const result = await createUserWithEmailAndPassword(auth, email, password);
-      console.log('Email sign-up successful:', result.user.uid);
-      return result.user;
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      if (error) throw error;
+      console.log('Email sign-up successful:', data.user?.id);
+      return data.user;
     } catch (err) {
       console.error('Email sign-up error:', err);
       setError(err as Error);
@@ -121,11 +98,8 @@ export function useAuth() {
   // Sign out
   const signOut = async () => {
     try {
-      const { getFirebaseAuth } = await import('@/lib/firebase');
-      const { signOut: firebaseSignOut } = await import('firebase/auth');
-      const auth = getFirebaseAuth();
-      if (!auth) throw new Error('Firebase auth not initialized');
-      await firebaseSignOut(auth);
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
       console.log('Sign-out successful');
     } catch (err) {
       console.error('Sign-out error:', err);
