@@ -546,7 +546,7 @@ export default function ChatInterface() {
     const isFirstMessage = !conversation || conversation.messages.length === 0;
     const firstUserMessage = content; // Save for title generation later
 
-    // Check if images would exceed Firestore limit (1MB)
+    // Check if images would exceed Supabase limit (1MB)
     let imagesToSave = images;
     if (images && images.length > 0) {
       const testMessage = {
@@ -561,9 +561,9 @@ export default function ChatInterface() {
       console.log(`Message size: ${messageSizeMB.toFixed(2)}MB`);
 
       if (messageSizeMB > 0.9) {
-        console.log('⚠️ Images too large for Firestore, saving text only');
-        imagesToSave = undefined; // Don't save images to Firestore
-        // Images will still be sent to LM Studio, just not saved in history
+        console.log('⚠️ Images too large for Supabase, saving text only');
+        imagesToSave = undefined; // Don't save images to database
+        // Images will still be sent to the model, just not saved in history
       }
     }
 
@@ -575,9 +575,9 @@ export default function ChatInterface() {
       images: imagesToSave, // Only save if under 1MB limit
     };
 
-    // Add user message to Firestore (with temporary title if first message)
+    // Add user message to database (with temporary title if first message)
     try {
-      console.log('Adding user message to Firestore...', { conversationId, hasImages: !!imagesToSave?.length });
+      console.log('Adding user message to database...', { conversationId, hasImages: !!imagesToSave?.length });
       await addMessage(conversationId, userMessage, isFirstMessage ? 'New Conversation' : undefined);
       console.log('User message added successfully');
     } catch (error) {
@@ -644,7 +644,7 @@ export default function ChatInterface() {
       // Rough token estimate: ~4 characters per token for English text
       const estimatedTokens = Math.ceil(response.length / 4);
 
-      // Add assistant message to Firestore
+      // Add assistant message to database
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',

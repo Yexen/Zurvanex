@@ -116,15 +116,6 @@ export async function sendOpenRouterMessage(
  */
 export const OPENROUTER_MODELS = [
   {
-    id: 'qwen/qwen3-vl-32b-instruct',
-    name: 'Qwen3 VL 32B Instruct',
-    description: 'Advanced vision-language model for image analysis and understanding',
-    contextWindow: 32768,
-    hasThinkingMode: false,
-    supportsVision: true,
-    isFree: false,
-  },
-  {
     id: 'x-ai/grok-4.1-fast:free',
     name: 'Grok 4.1 Fast (Free)',
     description: '2M context, tool calling, reasoning mode',
@@ -145,6 +136,14 @@ export const OPENROUTER_MODELS = [
     name: 'GPT OSS 20B (Free)',
     description: 'OpenAI open-weight model',
     contextWindow: 8192,
+    hasThinkingMode: false,
+    isFree: true,
+  },
+  {
+    id: 'google/gemini-2.0-flash-exp:free',
+    name: 'Gemini 2.0 Flash (Free)',
+    description: 'Google\'s latest fast multimodal model',
+    contextWindow: 1000000,
     hasThinkingMode: false,
     isFree: true,
   },

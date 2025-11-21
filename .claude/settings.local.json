@@ -3,7 +3,8 @@
     "allow": [
       "Bash(powershell -Command \"Get-ChildItem -Path . -Exclude nul,zarvanex.zip | Compress-Archive -DestinationPath zarvanex.zip -Force\")",
       "Bash(powershell -Command \"(Get-Item zarvanex.tar.gz).FullName\")",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:zarvanex.vercel.app)"
     ],
     "deny": [],
     "ask": []
