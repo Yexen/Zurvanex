@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserPreferences } from '@/hooks/useUserPreferences';
+import SettingsExtended from '@/components/SettingsExtended';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -32,6 +33,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
   });
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<string | null>(null);
+  const [showExtendedSettings, setShowExtendedSettings] = useState(false);
 
   // Update form data when preferences load
   useEffect(() => {
@@ -558,10 +560,34 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                       <div style={{ color: 'var(--teal-bright)', fontSize: '14px', fontWeight: '500', marginBottom: '8px' }}>
                         💡 How Personalization Works
                       </div>
-                      <div style={{ color: 'var(--gray-med)', fontSize: '12px', lineHeight: '1.5' }}>
+                      <div style={{ color: 'var(--gray-med)', fontSize: '12px', lineHeight: '1.5', marginBottom: '12px' }}>
                         Your personalization settings create a custom system prompt that tells the AI how to interact with you. 
                         This includes your preferred communication style, interests, and context about yourself.
                       </div>
+                      <button
+                        onClick={() => setShowExtendedSettings(true)}
+                        style={{
+                          padding: '8px 16px',
+                          background: 'var(--teal-bright)',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '6px',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = '#36c9ba'}
+                        onMouseLeave={(e) => e.currentTarget.style.background = 'var(--teal-bright)'}
+                      >
+                        <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                        </svg>
+                        Advanced Settings
+                      </button>
                     </div>
                   </div>
                 )}
@@ -659,6 +685,12 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
           </div>
         </div>
       </div>
+      
+      {/* Extended Settings Modal */}
+      <SettingsExtended 
+        isOpen={showExtendedSettings}
+        onClose={() => setShowExtendedSettings(false)}
+      />
     </div>
   );
 }
