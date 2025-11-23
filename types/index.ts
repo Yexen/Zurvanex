@@ -53,3 +53,25 @@ export interface UserProfile {
   displayName?: string;
   photoURL?: string;
 }
+
+export interface UserPreferences {
+  id: string;
+  user_id: string;
+  nickname?: string;
+  bio?: string;
+  avatar_url?: string;
+  theme: string;
+  language: string;
+  timezone?: string;
+  notifications: {
+    email: boolean;
+    push: boolean;
+    mentions: boolean;
+  };
+  privacy_settings: {
+    profile_visible: boolean;
+    activity_visible: boolean;
+  };
+  created_at: Date;
+  updated_at: Date;
+}
