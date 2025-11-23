@@ -162,18 +162,23 @@ export class HardMemorySupabase {
   }
 
   async getAllMemories(userId: string): Promise<Memory[]> {
+    console.log('🧠 [Supabase] getAllMemories called for userId:', userId);
     const { data, error } = await supabase
       .from('memories')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
+    console.log('🧠 [Supabase] getAllMemories response:', { dataCount: data?.length || 0, error });
+
     if (error) {
-      console.error('Error fetching all memories from Supabase:', error);
+      console.error('🚨 [Supabase] Error fetching all memories:', error);
       throw error;
     }
 
-    return (data || []).map(supabaseToMemory);
+    const memories = (data || []).map(supabaseToMemory);
+    console.log('🧠 [Supabase] Converted memories:', memories.length);
+    return memories;
   }
 
   async deleteMemory(memoryId: string): Promise<void> {
@@ -332,6 +337,7 @@ export class HardMemorySupabase {
 
   // SEARCH OPERATIONS
   async searchMemories(query: string, tags: string[] = [], userId: string): Promise<Memory[]> {
+    console.log('🧠 [Supabase] searchMemories called:', { query, tags, userId });
     let supabaseQuery = supabase
       .from('memories')
       .select('*')
@@ -339,6 +345,7 @@ export class HardMemorySupabase {
 
     // Full-text search on title and content
     if (query.trim()) {
+      console.log('🧠 [Supabase] Adding text search for query:', query);
       supabaseQuery = supabaseQuery.textSearch('title,content', query, {
         type: 'websearch',
         config: 'english'
@@ -347,17 +354,22 @@ export class HardMemorySupabase {
 
     // Filter by tags if provided
     if (tags.length > 0) {
+      console.log('🧠 [Supabase] Adding tags filter:', tags);
       supabaseQuery = supabaseQuery.overlaps('tags', tags);
     }
 
     const { data, error } = await supabaseQuery.order('created_at', { ascending: false });
 
+    console.log('🧠 [Supabase] searchMemories response:', { dataCount: data?.length || 0, error });
+
     if (error) {
-      console.error('Error searching memories in Supabase:', error);
+      console.error('🚨 [Supabase] Error searching memories:', error);
       throw error;
     }
 
-    return (data || []).map(supabaseToMemory);
+    const memories = (data || []).map(supabaseToMemory);
+    console.log('🧠 [Supabase] Search converted memories:', memories.length);
+    return memories;
   }
 
   // UTILITY METHODS

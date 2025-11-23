@@ -41,18 +41,24 @@ export async function getHardMemoryContext(
 
     // First, try semantic search with the query
     if (currentQuery.trim()) {
+      console.log('🧠 [Hard Memory] Searching with query:', currentQuery);
       const searchResults = await hardMemorySupabase.searchMemories(
         currentQuery,
         searchTags,
         userId
       );
+      console.log('🧠 [Hard Memory] Search results:', searchResults.length, searchResults.map(m => ({ title: m.title, contentLength: m.content.length })));
       // Take more search results to increase chance of finding relevant long content
       foundMemories.push(...searchResults.slice(0, maxResults * 2));
+    } else {
+      console.log('🧠 [Hard Memory] Empty query, skipping search');
     }
 
     // If we don't have enough results and includeRecent is true, get recent memories
     if (foundMemories.length < maxResults && includeRecent) {
+      console.log('🧠 [Hard Memory] Not enough search results, fetching recent memories');
       const recentMemories = await hardMemorySupabase.getAllMemories(userId);
+      console.log('🧠 [Hard Memory] Recent memories:', recentMemories.length, recentMemories.map(m => ({ title: m.title, contentLength: m.content.length })));
       const remainingSlots = maxResults - foundMemories.length;
       
       // Filter out duplicates and add recent ones
@@ -61,6 +67,7 @@ export async function getHardMemoryContext(
         .filter(m => !foundIds.has(m.id))
         .slice(0, remainingSlots);
       
+      console.log('🧠 [Hard Memory] Adding additional memories:', additionalMemories.length);
       foundMemories.push(...additionalMemories);
     }
 
@@ -85,7 +92,8 @@ export async function getHardMemoryContext(
     return context;
 
   } catch (error) {
-    console.error('🚨 Error in getHardMemoryContext:', error);
+    console.error('🚨 [Hard Memory] Error in getHardMemoryContext:', error);
+    console.error('🚨 [Hard Memory] Error details:', error.message, error.stack);
     return {
       foundMemories: [],
       relevantCount: 0,
