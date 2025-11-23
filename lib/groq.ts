@@ -23,7 +23,8 @@ export async function sendGroqMessage(
   messages: Message[],
   modelId: string,
   apiKey: string,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  systemPrompt?: string
 ): Promise<string> {
   const groq = createGroqClient(apiKey);
 
@@ -32,6 +33,14 @@ export async function sendGroqMessage(
     role: msg.role,
     content: msg.content,
   }));
+
+  // Add system prompt as first message if provided
+  if (systemPrompt) {
+    formattedMessages.unshift({
+      role: 'system',
+      content: systemPrompt,
+    });
+  }
 
   try {
     // Use streaming if callback provided

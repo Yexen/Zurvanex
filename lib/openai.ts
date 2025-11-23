@@ -18,7 +18,8 @@ export async function sendOpenAIMessage(
   messages: Message[],
   modelId: string,
   apiKey: string,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  systemPrompt?: string
 ): Promise<string> {
   const openai = createOpenAIClient(apiKey);
 
@@ -27,6 +28,14 @@ export async function sendOpenAIMessage(
     role: msg.role,
     content: msg.content,
   }));
+
+  // Add system prompt as first message if provided
+  if (systemPrompt) {
+    formattedMessages.unshift({
+      role: 'system',
+      content: systemPrompt,
+    });
+  }
 
   try {
     if (onChunk) {

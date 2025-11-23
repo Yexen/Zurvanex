@@ -13,7 +13,8 @@ export async function sendClaudeMessage(
   messages: Message[],
   modelId: string,
   apiKey: string,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  systemPrompt?: string
 ): Promise<string> {
   const anthropic = createAnthropicClient(apiKey);
 
@@ -31,6 +32,7 @@ export async function sendClaudeMessage(
         max_tokens: 8192,
         temperature: 0.7,
         messages: formattedMessages,
+        ...(systemPrompt && { system: systemPrompt }),
         stream: true,
       });
 
@@ -55,6 +57,7 @@ export async function sendClaudeMessage(
         max_tokens: 8192,
         temperature: 0.7,
         messages: formattedMessages,
+        ...(systemPrompt && { system: systemPrompt }),
         stream: false,
       });
 

@@ -7,7 +7,7 @@ const encoder = new TextEncoder();
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, modelId } = await request.json();
+    const { messages, modelId, systemPrompt } = await request.json();
     const apiKey = process.env.COHERE_API_KEY;
 
     if (!apiKey) {
@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
           await sendCohereMessage(messages, modelId, apiKey, (chunk: string) => {
             const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
             controller.enqueue(encoder.encode(data));
-          });
+          }, systemPrompt);
 
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));
           controller.close();

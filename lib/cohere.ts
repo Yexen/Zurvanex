@@ -13,7 +13,8 @@ export async function sendCohereMessage(
   messages: Message[],
   modelId: string,
   apiKey: string,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  systemPrompt?: string
 ): Promise<string> {
   const cohere = createCohereClient(apiKey);
 
@@ -35,6 +36,7 @@ export async function sendCohereMessage(
         chatHistory: chatHistory,
         temperature: 0.7,
         maxTokens: 4096,
+        ...(systemPrompt && { preamble: systemPrompt }),
       });
 
       let fullResponse = '';
@@ -56,6 +58,7 @@ export async function sendCohereMessage(
         chatHistory: chatHistory,
         temperature: 0.7,
         maxTokens: 4096,
+        ...(systemPrompt && { preamble: systemPrompt }),
       });
 
       return response.text || '';

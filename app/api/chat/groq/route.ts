@@ -7,9 +7,10 @@ export const runtime = 'nodejs'; // Use Node.js runtime for Groq SDK compatibili
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { messages, modelId } = body as {
+    const { messages, modelId, systemPrompt } = body as {
       messages: Message[];
       modelId: string;
+      systemPrompt?: string;
     };
 
     // Validate request
@@ -47,7 +48,7 @@ export async function POST(request: NextRequest) {
             // Send each chunk as Server-Sent Event format
             const data = `data: ${JSON.stringify({ content: chunk })}\n\n`;
             controller.enqueue(encoder.encode(data));
-          });
+          }, systemPrompt);
 
           // Send completion signal
           controller.enqueue(encoder.encode('data: [DONE]\n\n'));

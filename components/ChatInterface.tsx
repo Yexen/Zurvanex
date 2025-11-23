@@ -223,6 +223,17 @@ export default function ChatInterface() {
 
   // Helper function to send message to Groq API with streaming
   const sendGroqMessage = async (messages: Message[], modelId: string): Promise<string> => {
+    // Generate system prompt from user preferences
+    const systemPrompt = shouldIncludePersonalization(preferences) 
+      ? generateSystemPrompt(preferences)
+      : undefined;
+
+    console.log('Sending to Groq with personalization:', {
+      hasPreferences: !!preferences,
+      systemPromptLength: systemPrompt?.length || 0,
+      userContext: formatUserContext(preferences)
+    });
+
     const response = await fetch('/api/chat/groq', {
       method: 'POST',
       headers: {
@@ -231,6 +242,7 @@ export default function ChatInterface() {
       body: JSON.stringify({
         messages,
         modelId,
+        systemPrompt,
       }),
     });
 
@@ -359,6 +371,17 @@ export default function ChatInterface() {
 
   // Helper function to send message to OpenAI API with streaming
   const sendOpenAIMessage = async (messages: Message[], modelId: string): Promise<string> => {
+    // Generate system prompt from user preferences
+    const systemPrompt = shouldIncludePersonalization(preferences) 
+      ? generateSystemPrompt(preferences)
+      : undefined;
+
+    console.log('Sending to OpenAI with personalization:', {
+      hasPreferences: !!preferences,
+      systemPromptLength: systemPrompt?.length || 0,
+      userContext: formatUserContext(preferences)
+    });
+
     const response = await fetch('/api/chat/openai', {
       method: 'POST',
       headers: {
@@ -367,6 +390,7 @@ export default function ChatInterface() {
       body: JSON.stringify({
         messages,
         modelId,
+        systemPrompt,
       }),
     });
 
@@ -421,6 +445,17 @@ export default function ChatInterface() {
 
   // Helper function to send message to Claude API with streaming
   const sendClaudeMessage = async (messages: Message[], modelId: string): Promise<string> => {
+    // Generate system prompt from user preferences
+    const systemPrompt = shouldIncludePersonalization(preferences) 
+      ? generateSystemPrompt(preferences)
+      : undefined;
+
+    console.log('Sending to Claude with personalization:', {
+      hasPreferences: !!preferences,
+      systemPromptLength: systemPrompt?.length || 0,
+      userContext: formatUserContext(preferences)
+    });
+
     const response = await fetch('/api/chat/claude', {
       method: 'POST',
       headers: {
@@ -429,6 +464,7 @@ export default function ChatInterface() {
       body: JSON.stringify({
         messages,
         modelId,
+        systemPrompt,
       }),
     });
 
@@ -483,6 +519,17 @@ export default function ChatInterface() {
 
   // Helper function to send message to Cohere API with streaming
   const sendCohereMessage = async (messages: Message[], modelId: string): Promise<string> => {
+    // Generate system prompt from user preferences
+    const systemPrompt = shouldIncludePersonalization(preferences) 
+      ? generateSystemPrompt(preferences)
+      : undefined;
+
+    console.log('Sending to Cohere with personalization:', {
+      hasPreferences: !!preferences,
+      systemPromptLength: systemPrompt?.length || 0,
+      userContext: formatUserContext(preferences)
+    });
+
     const response = await fetch('/api/chat/cohere', {
       method: 'POST',
       headers: {
@@ -491,6 +538,7 @@ export default function ChatInterface() {
       body: JSON.stringify({
         messages,
         modelId,
+        systemPrompt,
       }),
     });
 
