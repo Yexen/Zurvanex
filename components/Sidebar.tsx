@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import UserProfile from './UserProfile';
 import Settings from './Settings';
 import PWAInstallButton from './PWAInstallButton';
+import ConversationAnalysisModal from './ConversationAnalysisModal';
 import type { Conversation } from '@/types';
 
 interface SidebarProps {
@@ -38,6 +39,7 @@ export default function Sidebar({
   const [editingTitle, setEditingTitle] = useState('');
   const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
   const [infoConversationId, setInfoConversationId] = useState<string | null>(null);
+  const [analysisConversationId, setAnalysisConversationId] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     try {
@@ -212,13 +214,26 @@ export default function Sidebar({
                     />
                   ) : (
                     <>
-                      <div
-                        onClick={() => onSelectConversation(conv.id)}
-                        style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      {/* Action buttons - positioned above title on hover */}
+                      <div 
+                        style={{ 
+                          position: 'absolute',
+                          top: '-2px',
+                          right: '8px',
+                          display: 'flex', 
+                          gap: '4px', 
+                          opacity: 0, 
+                          transition: 'opacity 0.2s, transform 0.2s',
+                          transform: 'translateY(2px)',
+                          alignItems: 'center',
+                          background: 'var(--bg)',
+                          padding: '2px 4px',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          zIndex: 10
+                        }} 
+                        className="chat-item-actions"
                       >
-                        {conv.title}
-                      </div>
-                      <div style={{ display: 'flex', gap: '6px', opacity: 0, transition: 'opacity 0.2s', alignItems: 'center' }} className="chat-item-actions">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -316,6 +331,41 @@ export default function Sidebar({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAnalysisConversationId(conv.id);
+                          }}
+                          style={{
+                            padding: '4px',
+                            borderRadius: '4px',
+                            border: 'none',
+                            background: 'transparent',
+                            color: 'var(--gray-light)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                          title="Analyze Conversation"
+                        >
+                          <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      {/* Title - now takes full width */}
+                      <div
+                        onClick={() => onSelectConversation(conv.id)}
+                        style={{ 
+                          width: '100%',
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap',
+                          paddingRight: '8px'
+                        }}
+                      >
+                        {conv.title}
                       </div>
                     </>
                   )}
@@ -762,6 +812,17 @@ export default function Sidebar({
           </div>
         </div>
       )}
+
+      {/* Analysis Modal */}
+      {analysisConversationId && (() => {
+        const conv = conversations.find(c => c.id === analysisConversationId);
+        return conv ? (
+          <ConversationAnalysisModal
+            conversation={conv}
+            onClose={() => setAnalysisConversationId(null)}
+          />
+        ) : null;
+      })()}
     </div>
   );
 }

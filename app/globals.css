@@ -1435,9 +1435,15 @@ body {
   }
 }
 
-/* Chat item actions - show on hover */
+/* Chat item actions - show on hover with slide up animation */
 .chat-item:hover .chat-item-actions {
   opacity: 1 !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Make chat items position relative for absolute positioning of actions */
+.chat-item {
+  position: relative;
 }
 
 .chat-item-actions button:hover {
