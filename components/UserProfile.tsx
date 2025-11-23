@@ -27,7 +27,7 @@ export default function UserProfile({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const displayName = preferences?.nickname || preferences?.display_name || user?.email?.split('@')[0] || 'User';
-  const avatarUrl = preferences?.avatar_url || user?.photoURL;
+  const avatarUrl = preferences?.avatar_url;
 
   const sizeMap = {
     small: { width: 32, height: 32, fontSize: '14px' },
