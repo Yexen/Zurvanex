@@ -1,6 +1,14 @@
 import { supabase } from '@/lib/supabase';
 import type { Memory, Folder } from '@/types/memory';
 
+// Check if Supabase is available
+const isSupabaseAvailable = () => {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && 
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+};
+
 // Supabase table types
 interface SupabaseMemory {
   id: string;
@@ -72,6 +80,9 @@ function folderToSupabase(folder: Omit<Folder, 'id' | 'createdAt'>): Omit<Supaba
 export class HardMemorySupabase {
   // MEMORY OPERATIONS
   async saveMemory(memoryData: Omit<Memory, 'id' | 'createdAt' | 'lastAccessed' | 'lastModified'>): Promise<Memory> {
+    if (!isSupabaseAvailable()) {
+      throw new Error('Supabase not configured');
+    }
     const { data, error } = await supabase
       .from('memories')
       .insert(memoryToSupabase(memoryData))
