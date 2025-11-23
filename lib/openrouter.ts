@@ -19,13 +19,22 @@ export async function sendOpenRouterMessage(
   messages: Message[],
   modelId: string,
   apiKey: string,
-  onChunk?: (chunk: string) => void
+  onChunk?: (chunk: string) => void,
+  systemPrompt?: string
 ): Promise<string> {
   // Convert our messages to OpenRouter format
   const formattedMessages: OpenRouterMessage[] = messages.map((msg) => ({
     role: msg.role,
     content: msg.content,
   }));
+
+  // Add system prompt if provided
+  if (systemPrompt) {
+    formattedMessages.unshift({
+      role: 'system',
+      content: systemPrompt,
+    });
+  }
 
   try {
     const response = await fetch(OPENROUTER_API_URL, {

@@ -17,12 +17,14 @@ import { COHERE_MODELS } from '@/lib/cohere';
 import type { Conversation, Message, Model } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations } from '@/hooks/useConversations';
+import { useUserPreferences } from '@/hooks/useUserPreferences';
 import { extractionTrigger } from '@/lib/memory/extractionTrigger';
+import { generateSystemPrompt, formatUserContext, shouldIncludePersonalization } from '@/lib/personalization';
 
 export default function ChatInterface() {
   const router = useRouter();
 
-  // Firebase hooks
+  // Hooks
   const { user, loading: authLoading } = useAuth();
   const {
     conversations,
@@ -33,6 +35,7 @@ export default function ChatInterface() {
     deleteConversation,
     setMessages,
   } = useConversations(user?.id || null);
+  const { preferences } = useUserPreferences(user?.id || null);
 
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [models, setModels] = useState<Model[]>([]);
@@ -281,6 +284,17 @@ export default function ChatInterface() {
 
   // Helper function to send message to OpenRouter API with streaming
   const sendOpenRouterMessage = async (messages: Message[], modelId: string): Promise<string> => {
+    // Generate system prompt from user preferences
+    const systemPrompt = shouldIncludePersonalization(preferences) 
+      ? generateSystemPrompt(preferences)
+      : undefined;
+
+    console.log('Sending to OpenRouter with personalization:', {
+      hasPreferences: !!preferences,
+      systemPromptLength: systemPrompt?.length || 0,
+      userContext: formatUserContext(preferences)
+    });
+
     const response = await fetch('/api/chat/openrouter', {
       method: 'POST',
       headers: {
@@ -289,6 +303,7 @@ export default function ChatInterface() {
       body: JSON.stringify({
         messages,
         modelId,
+        systemPrompt,
       }),
     });
 
@@ -959,6 +974,19 @@ export default function ChatInterface() {
 
           <div className="chat-title">
             {activeConversation?.title || 'New Conversation'}
+            {shouldIncludePersonalization(preferences) && (
+              <span style={{ 
+                marginLeft: '12px', 
+                fontSize: '12px', 
+                background: 'var(--teal-dark)', 
+                color: 'white', 
+                padding: '2px 8px', 
+                borderRadius: '12px',
+                opacity: 0.8
+              }}>
+                Personalized
+              </span>
+            )}
           </div>
           <ModelSelector
             models={models}
