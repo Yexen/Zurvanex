@@ -43,7 +43,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         bio: preferences.bio || '',
         conversationStyle: preferences.conversation_style?.tone || 'friendly',
         interests: preferences.interests?.join(', ') || '',
-        extendedBio: preferences.extended_bio || '',
+        extendedBio: preferences.background || '',
         notifications: preferences.notifications,
         privacy: preferences.privacy_settings,
       });
@@ -63,9 +63,16 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         updateNotificationSettings(formData.notifications),
         updatePrivacySettings(formData.privacy),
         updatePreferences({
-          conversation_style: { tone: formData.conversationStyle },
+          conversation_style: {
+            tone: formData.conversationStyle as 'professional' | 'casual' | 'friendly' | 'balanced',
+            formality: preferences?.conversation_style?.formality || 'casual',
+            verbosity: preferences?.conversation_style?.verbosity || 'detailed',
+            humor: preferences?.conversation_style?.humor ?? true,
+            empathy_level: preferences?.conversation_style?.empathy_level || 'high',
+            technical_depth: preferences?.conversation_style?.technical_depth || 'medium'
+          },
           interests: formData.interests.split(',').map(i => i.trim()).filter(Boolean),
-          extended_bio: formData.extendedBio || undefined,
+          background: formData.extendedBio || undefined,
         }),
       ]);
       
