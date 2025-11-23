@@ -396,7 +396,6 @@ export default function ConversationVisualAnalysis({ conversation }: Conversatio
                     paddingAngle={5}
                     dataKey="value"
                     label={({ name, percent }) => `${name}: ${((percent || 0) * 100).toFixed(0)}%`}
-                    labelStyle={{ fontSize: '11px', fill: 'var(--gray-light)' }}
                   >
                     {patternsData.typeDistribution.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={entry.color} />

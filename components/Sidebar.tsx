@@ -218,21 +218,22 @@ export default function Sidebar({
                       <div 
                         style={{ 
                           position: 'absolute',
-                          top: '-32px',
-                          left: '8px',
-                          right: '8px',
+                          top: '-40px',
+                          left: '0px',
+                          right: '0px',
                           display: 'flex', 
                           justifyContent: 'center',
-                          gap: '6px', 
+                          gap: '4px', 
                           opacity: 0, 
                           transition: 'opacity 0.2s',
                           alignItems: 'center',
                           background: 'var(--darker-bg)',
-                          padding: '6px 8px',
-                          borderRadius: '8px',
+                          padding: '4px 8px',
+                          borderRadius: '6px',
                           border: '1px solid rgba(255, 255, 255, 0.1)',
-                          zIndex: 10,
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
+                          zIndex: 100,
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+                          pointerEvents: 'none'
                         }} 
                         className="chat-item-actions"
                       >
@@ -252,14 +253,15 @@ export default function Sidebar({
                             borderRadius: '2px',
                             border: '1.5px solid var(--gray-light)',
                             background: selectedChats.has(conv.id) ? 'var(--purple)' : 'transparent',
-                            width: '14px',
-                            height: '14px',
-                            minWidth: '14px',
-                            minHeight: '14px',
+                            width: '12px',
+                            height: '12px',
+                            minWidth: '12px',
+                            minHeight: '12px',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
+                            pointerEvents: 'auto'
                           }}
                           title="Select for deletion"
                         >
@@ -284,6 +286,7 @@ export default function Sidebar({
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
+                            pointerEvents: 'auto'
                           }}
                           title="Rename"
                         >
@@ -305,6 +308,7 @@ export default function Sidebar({
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
+                            pointerEvents: 'auto'
                           }}
                           title="Delete"
                         >
@@ -326,6 +330,7 @@ export default function Sidebar({
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
+                            pointerEvents: 'auto'
                           }}
                           title="Information"
                         >
@@ -347,6 +352,7 @@ export default function Sidebar({
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
+                            pointerEvents: 'auto'
                           }}
                           title="Analyze Conversation"
                         >
