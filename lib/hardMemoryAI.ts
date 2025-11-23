@@ -29,7 +29,7 @@ export async function getHardMemoryContext(
   } = {}
 ): Promise<HardMemoryContext> {
   const {
-    maxResults = 5,
+    maxResults = 10,
     searchTags = [],
     includeRecent = true
   } = options;
@@ -46,7 +46,8 @@ export async function getHardMemoryContext(
         searchTags,
         userId
       );
-      foundMemories.push(...searchResults.slice(0, maxResults));
+      // Take more search results to increase chance of finding relevant long content
+      foundMemories.push(...searchResults.slice(0, maxResults * 2));
     }
 
     // If we don't have enough results and includeRecent is true, get recent memories
@@ -73,7 +74,12 @@ export async function getHardMemoryContext(
     console.log('🧠 [Hard Memory] Context prepared:', {
       foundMemories: context.foundMemories.length,
       relevantCount: context.relevantCount,
-      searchQuery: context.searchQuery
+      searchQuery: context.searchQuery,
+      memoryTitles: context.foundMemories.map(m => ({ 
+        title: m.title, 
+        contentLength: m.content.length,
+        tags: m.tags 
+      }))
     });
 
     return context;
@@ -109,10 +115,17 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
     parts.push(`\n**${index + 1}. ${memory.title}**${tags}`);
     parts.push(`*Created: ${date}*`);
     
-    // Include content preview (first 200 characters)
-    const content = memory.content.length > 200 
-      ? memory.content.substring(0, 200) + '...'
-      : memory.content;
+    // Include more content for better context, but limit for token efficiency
+    // For long content, prioritize the beginning and include key sections
+    let content = memory.content;
+    if (content.length > 1500) {
+      // For very long content, include first 1000 chars and last 300 chars
+      content = content.substring(0, 1000) + '\n\n[... content truncated ...]\n\n' + content.substring(content.length - 300);
+    } else if (content.length > 800) {
+      // For moderately long content, include first 600 chars
+      content = content.substring(0, 600) + '...';
+    }
+    // For content <= 800 chars, include everything
     
     if (content.trim()) {
       parts.push(content);
