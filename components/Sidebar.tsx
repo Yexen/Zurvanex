@@ -214,23 +214,25 @@ export default function Sidebar({
                     />
                   ) : (
                     <>
-                      {/* Action buttons - positioned above title on hover */}
+                      {/* Action buttons - positioned on top of conversation frame */}
                       <div 
                         style={{ 
                           position: 'absolute',
-                          top: '-2px',
+                          top: '-32px',
+                          left: '8px',
                           right: '8px',
                           display: 'flex', 
-                          gap: '4px', 
+                          justifyContent: 'center',
+                          gap: '6px', 
                           opacity: 0, 
-                          transition: 'opacity 0.2s, transform 0.2s',
-                          transform: 'translateY(2px)',
+                          transition: 'opacity 0.2s',
                           alignItems: 'center',
-                          background: 'var(--bg)',
-                          padding: '2px 4px',
-                          borderRadius: '4px',
+                          background: 'var(--darker-bg)',
+                          padding: '6px 8px',
+                          borderRadius: '8px',
                           border: '1px solid rgba(255, 255, 255, 0.1)',
-                          zIndex: 10
+                          zIndex: 10,
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
                         }} 
                         className="chat-item-actions"
                       >
