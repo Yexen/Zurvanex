@@ -22,8 +22,16 @@ export function useAuth() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      console.log('useAuth: Auth state changed:', session?.user?.id || 'No user');
-      setUser(session?.user ?? null);
+      const newUser = session?.user ?? null;
+      console.log('useAuth: Auth state changed:', newUser?.id || 'No user');
+      
+      // Only update state if user actually changed
+      setUser(currentUser => {
+        if (currentUser?.id !== newUser?.id) {
+          return newUser;
+        }
+        return currentUser;
+      });
       setLoading(false);
     });
 

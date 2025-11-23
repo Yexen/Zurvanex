@@ -48,6 +48,16 @@ export default function ChatInterface() {
 
   // Get active conversation
   const activeConversation = conversations.find((c) => c.id === activeConversationId);
+  
+  // Debug logging for active conversation
+  useEffect(() => {
+    console.log('Active conversation changed:', {
+      activeConversationId,
+      found: !!activeConversation,
+      messageCount: activeConversation?.messages.length || 0,
+      conversationCount: conversations.length
+    });
+  }, [activeConversationId, activeConversation, conversations]);
 
   // Load available models on mount
   useEffect(() => {
@@ -518,6 +528,12 @@ export default function ChatInterface() {
   };
 
   const handleSendMessage = async (content: string, images?: string[]) => {
+    // Prevent multiple simultaneous calls
+    if (isLoading) {
+      console.log('Already loading, ignoring duplicate send request');
+      return;
+    }
+
     let conversationId = activeConversationId;
 
     // Create a new conversation if needed
@@ -578,6 +594,8 @@ export default function ChatInterface() {
     // Add user message to database (with temporary title if first message)
     try {
       console.log('Adding user message to database...', { conversationId, hasImages: !!imagesToSave?.length });
+      console.log('Current conversations in state:', conversations.length);
+      console.log('Active conversation found:', !!conversations.find(c => c.id === conversationId));
       await addMessage(conversationId, userMessage, isFirstMessage ? 'New Conversation' : undefined);
       console.log('User message added successfully');
     } catch (error) {
@@ -1133,7 +1151,18 @@ export default function ChatInterface() {
           ) : (
             /* Empty State - Centered Logo */
             <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in">
-              <img src="/Logo.png" alt="Zarvânex Logo" style={{ width: '180px', height: '180px', marginBottom: '24px' }} />
+              <img 
+                src="/Logo.png" 
+                alt="Zarvânex Logo" 
+                style={{ 
+                  width: '180px', 
+                  height: '180px', 
+                  marginBottom: '24px',
+                  background: 'var(--bg-darker)',
+                  borderRadius: '20px',
+                  padding: '20px'
+                }} 
+              />
               <h1 className="text-4xl font-bold text-[var(--gray-med)] tracking-tight">
                 Zarvânex
               </h1>
