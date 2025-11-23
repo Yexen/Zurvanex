@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ConversationVisualAnalysis from './ConversationVisualAnalysis';
 import type { Conversation } from '@/types';
 
 interface ConversationAnalysisModalProps {
@@ -11,6 +12,7 @@ interface ConversationAnalysisModalProps {
 export default function ConversationAnalysisModal({ conversation, onClose }: ConversationAnalysisModalProps) {
   const [analysisContent, setAnalysisContent] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeView, setActiveView] = useState<'overview' | 'text' | 'visual'>('overview');
 
   const analyzeConversation = async () => {
     setIsAnalyzing(true);
@@ -187,115 +189,299 @@ ${conversationText}`;
           </button>
         </div>
 
+        {/* Navigation Tabs */}
+        <div style={{
+          display: 'flex',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'var(--darker-bg)'
+        }}>
+          {[
+            { id: 'overview', label: '📊 Overview', icon: '📊' },
+            { id: 'visual', label: '📈 Visual Analysis', icon: '📈' },
+            { id: 'text', label: '📝 Text Analysis', icon: '📝' }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id as any)}
+              style={{
+                padding: '12px 20px',
+                background: activeView === tab.id ? 'var(--bg)' : 'transparent',
+                border: 'none',
+                borderBottom: activeView === tab.id ? '2px solid var(--primary)' : '2px solid transparent',
+                color: activeView === tab.id ? 'var(--primary)' : 'var(--gray-med)',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: 500,
+                transition: 'all 0.2s ease',
+                flex: 1,
+                textAlign: 'center'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         {/* Content */}
         <div style={{
           flex: 1,
-          padding: '20px',
           overflow: 'auto'
         }}>
-          {!analysisContent && !isAnalyzing && (
-            <div style={{
-              textAlign: 'center',
-              padding: '40px 20px'
-            }}>
+          {/* Overview Tab */}
+          {activeView === 'overview' && (
+            <div style={{ padding: '20px' }}>
               <div style={{
-                width: '60px',
-                height: '60px',
-                background: 'var(--primary)',
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 16px',
-                opacity: 0.8
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '16px',
+                marginBottom: '24px'
               }}>
-                <svg width="28" height="28" fill="none" stroke="white" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              </div>
-              <h4 style={{
-                margin: '0 0 8px 0',
-                color: 'var(--text)',
-                fontSize: '16px',
-                fontWeight: '600'
-              }}>
-                Ready to Analyze
-              </h4>
-              <p style={{
-                margin: '0 0 24px 0',
-                color: 'var(--gray-med)',
-                fontSize: '14px',
-                lineHeight: '1.5'
-              }}>
-                Get comprehensive insights about this conversation including themes, patterns, and recommendations.
-              </p>
-              <button
-                onClick={analyzeConversation}
-                style={{
-                  background: 'var(--primary)',
-                  border: 'none',
-                  color: 'white',
-                  padding: '12px 24px',
+                <div style={{
+                  padding: '16px',
+                  background: 'rgba(139, 92, 246, 0.1)',
                   borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'none';
-                  e.currentTarget.style.boxShadow = 'none';
-                }}
-              >
-                Start Analysis
-              </button>
-            </div>
-          )}
-
-          {isAnalyzing && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              padding: '20px',
-              background: 'rgba(139, 92, 246, 0.1)',
-              borderRadius: '8px',
-              border: '1px solid rgba(139, 92, 246, 0.2)'
-            }}>
+                  border: '1px solid rgba(139, 92, 246, 0.2)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '24px', color: 'var(--primary)', fontWeight: '700' }}>
+                    {conversation.messages.length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--gray-med)', marginTop: '4px' }}>
+                    Total Messages
+                  </div>
+                </div>
+                <div style={{
+                  padding: '16px',
+                  background: 'rgba(0, 230, 230, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(0, 230, 230, 0.2)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '24px', color: 'var(--teal-bright)', fontWeight: '700' }}>
+                    {conversation.messages.filter(m => m.role === 'user').length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--gray-med)', marginTop: '4px' }}>
+                    User Messages
+                  </div>
+                </div>
+                <div style={{
+                  padding: '16px',
+                  background: 'rgba(34, 197, 94, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(34, 197, 94, 0.2)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '24px', color: 'rgba(34, 197, 94, 0.8)', fontWeight: '700' }}>
+                    {conversation.messages.filter(m => m.role === 'assistant').length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--gray-med)', marginTop: '4px' }}>
+                    AI Responses
+                  </div>
+                </div>
+                <div style={{
+                  padding: '16px',
+                  background: 'rgba(251, 146, 60, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(251, 146, 60, 0.2)',
+                  textAlign: 'center'
+                }}>
+                  <div style={{ fontSize: '24px', color: 'rgba(251, 146, 60, 0.8)', fontWeight: '700' }}>
+                    {[...new Set(conversation.messages.filter(m => m.modelId).map(m => m.modelId))].length}
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--gray-med)', marginTop: '4px' }}>
+                    Models Used
+                  </div>
+                </div>
+              </div>
+              
               <div style={{
-                width: '20px',
-                height: '20px',
-                border: '2px solid rgba(139, 92, 246, 0.3)',
-                borderTop: '2px solid var(--primary)',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }} />
-              <span style={{
-                color: 'var(--text)',
-                fontSize: '14px'
+                textAlign: 'center',
+                padding: '40px 20px'
               }}>
-                Analyzing conversation...
-              </span>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  background: 'var(--primary)',
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 16px',
+                  opacity: 0.8
+                }}>
+                  <svg width="28" height="28" fill="none" stroke="white" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                  </svg>
+                </div>
+                <h4 style={{
+                  margin: '0 0 12px 0',
+                  color: 'var(--text)',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}>
+                  Explore Your Conversation
+                </h4>
+                <p style={{
+                  margin: '0 0 24px 0',
+                  color: 'var(--gray-med)',
+                  fontSize: '14px',
+                  lineHeight: '1.5'
+                }}>
+                  Use the tabs above to dive deep into visual charts or get comprehensive text analysis of this conversation.
+                </p>
+                <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+                  <button
+                    onClick={() => setActiveView('visual')}
+                    style={{
+                      background: 'var(--teal-bright)',
+                      border: 'none',
+                      color: 'white',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    📈 See Charts
+                  </button>
+                  <button
+                    onClick={() => setActiveView('text')}
+                    style={{
+                      background: 'var(--primary)',
+                      border: 'none',
+                      color: 'white',
+                      padding: '10px 20px',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    📝 Start Analysis
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
-          {analysisContent && (
-            <div style={{
-              background: 'var(--darker-bg)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              borderRadius: '8px',
-              padding: '16px',
-              whiteSpace: 'pre-wrap',
-              fontSize: '14px',
-              lineHeight: '1.6',
-              color: 'var(--gray-light)',
-              fontFamily: 'inherit'
-            }}>
-              {analysisContent}
+          {/* Visual Analysis Tab */}
+          {activeView === 'visual' && (
+            <div style={{ padding: '20px' }}>
+              <ConversationVisualAnalysis conversation={conversation} />
+            </div>
+          )}
+
+          {/* Text Analysis Tab */}
+          {activeView === 'text' && (
+            <div style={{ padding: '20px' }}>
+              {!analysisContent && !isAnalyzing && (
+                <div style={{
+                  textAlign: 'center',
+                  padding: '40px 20px'
+                }}>
+                  <div style={{
+                    width: '60px',
+                    height: '60px',
+                    background: 'var(--primary)',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 16px',
+                    opacity: 0.8
+                  }}>
+                    <svg width="28" height="28" fill="none" stroke="white" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h4 style={{
+                    margin: '0 0 8px 0',
+                    color: 'var(--text)',
+                    fontSize: '16px',
+                    fontWeight: '600'
+                  }}>
+                    AI-Powered Text Analysis
+                  </h4>
+                  <p style={{
+                    margin: '0 0 24px 0',
+                    color: 'var(--gray-med)',
+                    fontSize: '14px',
+                    lineHeight: '1.5'
+                  }}>
+                    Get comprehensive insights about this conversation including themes, patterns, and recommendations.
+                  </p>
+                  <button
+                    onClick={analyzeConversation}
+                    style={{
+                      background: 'var(--primary)',
+                      border: 'none',
+                      color: 'white',
+                      padding: '12px 24px',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '500',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(139, 92, 246, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'none';
+                      e.currentTarget.style.boxShadow = 'none';
+                    }}
+                  >
+                    Start Text Analysis
+                  </button>
+                </div>
+              )}
+
+              {isAnalyzing && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '20px',
+                  background: 'rgba(139, 92, 246, 0.1)',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(139, 92, 246, 0.2)'
+                }}>
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    border: '2px solid rgba(139, 92, 246, 0.3)',
+                    borderTop: '2px solid var(--primary)',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                  <span style={{
+                    color: 'var(--text)',
+                    fontSize: '14px'
+                  }}>
+                    Analyzing conversation...
+                  </span>
+                </div>
+              )}
+
+              {analysisContent && (
+                <div style={{
+                  background: 'var(--darker-bg)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  whiteSpace: 'pre-wrap',
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  color: 'var(--gray-light)',
+                  fontFamily: 'inherit'
+                }}>
+                  {analysisContent}
+                </div>
+              )}
             </div>
           )}
         </div>
