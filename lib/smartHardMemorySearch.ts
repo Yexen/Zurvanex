@@ -41,7 +41,8 @@ export async function smartHardMemorySearch(
     openai?: string;
   }
 ): Promise<SmartHardMemoryResult> {
-  console.log('[SmartHardMemory] Processing query:', userMessage);
+  const startTime = performance.now();
+  console.log('[SmartHardMemory] ⏱️ Processing query:', userMessage.substring(0, 50) + '...');
 
   try {
     // Initialize cache
@@ -50,14 +51,19 @@ export async function smartHardMemorySearch(
     }
 
     // CACHE CHECK FIRST (Tier 1 & 2 only - no embedding needed)
+    const cacheStartTime = performance.now();
     const cacheResult = await hardMemoryCache.lookup(
       userMessage,
       userId,
       undefined // Skip embedding for now - only check exact matches
     );
 
+    const cacheCheckTime = performance.now() - cacheStartTime;
+    console.log(`[SmartHardMemory] ⏱️ Cache check: ${cacheCheckTime.toFixed(0)}ms`);
+
     if (cacheResult.hit && cacheResult.entry) {
-      console.log(`[SmartHardMemory] ✅ CACHE HIT! Tier ${cacheResult.tier} - Returning cached result`);
+      const totalTime = performance.now() - startTime;
+      console.log(`[SmartHardMemory] ✅ CACHE HIT! Tier ${cacheResult.tier} - Total: ${totalTime.toFixed(0)}ms`);
       return {
         ...cacheResult.entry.result,
         fromCache: true,
@@ -68,6 +74,7 @@ export async function smartHardMemorySearch(
     console.log('[SmartHardMemory] ❌ Cache miss - Running full search');
 
     // STEP 1-3: Classify Intent, Extract Keywords, and Generate Embedding in PARALLEL
+    const apiStartTime = performance.now();
     const [intent, keywords, queryEmbedding] = apiKeys.openrouter
       ? await Promise.all([
           classifyIntent(userMessage, apiKeys.openrouter),
@@ -79,6 +86,8 @@ export async function smartHardMemorySearch(
         ])
       : ['CONCEPTUAL' as const, fallbackKeywordExtraction(userMessage), null] as const;
 
+    const apiTime = performance.now() - apiStartTime;
+    console.log(`[SmartHardMemory] ⏱️ Parallel API calls: ${apiTime.toFixed(0)}ms`);
     console.log('[SmartHardMemory] Intent:', intent);
     console.log('[SmartHardMemory] Keywords:', keywords);
     if (queryEmbedding) {
@@ -86,7 +95,10 @@ export async function smartHardMemorySearch(
     }
 
     // STEP 3: Get all memories from Supabase
+    const supabaseStartTime = performance.now();
     const allMemories = await hardMemorySupabase.getAllMemories(userId);
+    const supabaseTime = performance.now() - supabaseStartTime;
+    console.log(`[SmartHardMemory] ⏱️ Supabase fetch: ${supabaseTime.toFixed(0)}ms`);
     console.log('[SmartHardMemory] Total memories:', allMemories.length);
 
     if (allMemories.length === 0) {
@@ -157,6 +169,9 @@ export async function smartHardMemorySearch(
       console.error('[SmartHardMemory] Failed to cache results:', cacheError);
       // Don't fail the request if caching fails
     }
+
+    const totalTime = performance.now() - startTime;
+    console.log(`[SmartHardMemory] ⏱️ TOTAL TIME: ${totalTime.toFixed(0)}ms`);
 
     return result;
   } catch (error) {
