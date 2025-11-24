@@ -104,10 +104,10 @@ export default function FloatingMemoryPopup({ isOpen, onClose }: FloatingMemoryP
           top: `${position.y}px`,
           width: isMinimized ? '300px' : `${size.width}px`,
           height: isMinimized ? '56px' : `${size.height}px`,
-          background: 'var(--bg-primary)',
+          background: '#0a0a0a',
           border: '2px solid #40E0D0',
           borderRadius: '12px',
-          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
+          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(0, 0, 0, 0.5)',
           zIndex: 9999,
           display: 'flex',
           flexDirection: 'column',
@@ -121,7 +121,7 @@ export default function FloatingMemoryPopup({ isOpen, onClose }: FloatingMemoryP
           className="popup-header"
           style={{
             padding: '12px 16px',
-            background: 'var(--darker-bg)',
+            background: '#1a1a1a',
             borderBottom: '1px solid rgba(64, 224, 208, 0.3)',
             display: 'flex',
             alignItems: 'center',

@@ -694,28 +694,6 @@ export default function MemoryPanel() {
             </svg>
             Import
           </button>
-
-          <button
-            onClick={() => window.location.href = '/'}
-            style={{
-              padding: '8px 16px',
-              background: 'rgba(255, 255, 255, 0.1)',
-              color: 'var(--gray-med)',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              borderRadius: '6px',
-              fontSize: '14px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'all 0.2s'
-            }}
-          >
-            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Back to Chat
-          </button>
         </div>
       </div>
 
