@@ -157,7 +157,7 @@ body {
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: var(--gray-light);
+    color: #40E0D0;
     margin-bottom: 6px;
     padding: 0 8px;
 }
@@ -207,6 +207,31 @@ body {
 .settings-btn:hover {
     background: rgba(255, 255, 255, 0.05);
     border-color: rgba(255, 255, 255, 0.3);
+}
+
+.menu-item {
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 14px;
+    text-align: left;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Courier New', Courier, monospace;
+}
+
+.menu-item:hover {
+    background: rgba(64, 224, 208, 0.1);
+}
+
+.menu-item svg {
+    flex-shrink: 0;
 }
 
 /* Search Chat Button */

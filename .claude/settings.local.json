@@ -16,7 +16,8 @@
       "Bash(timeout 5 echo:*)",
       "Bash(libsmartHardMemorySearch.ts)",
       "WebSearch",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(nul)"
     ],
     "deny": [],
     "ask": []

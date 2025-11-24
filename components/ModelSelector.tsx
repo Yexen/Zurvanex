@@ -139,7 +139,7 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
     // Position tooltip to the left of dropdown with better visibility
     setTooltipPosition({
       top: rect.top,
-      left: dropdownRect ? dropdownRect.left - 280 : rect.left - 280,
+      left: dropdownRect ? dropdownRect.left - 320 : rect.left - 320,
     });
   };
 

@@ -10,14 +10,20 @@ interface UserProfileProps {
   size?: 'small' | 'medium' | 'large';
   showUpload?: boolean;
   showLogout?: boolean;
+  showMenu?: boolean;
+  onOpenSettings?: () => void;
+  onOpenHardMemory?: () => void;
   onClick?: () => void;
 }
 
-export default function UserProfile({ 
-  showEmail = false, 
-  size = 'small', 
-  showUpload = false, 
+export default function UserProfile({
+  showEmail = false,
+  size = 'small',
+  showUpload = false,
   showLogout = false,
+  showMenu = false,
+  onOpenSettings,
+  onOpenHardMemory,
   onClick
 }: UserProfileProps) {
   const { user, signOut } = useAuth();
@@ -190,32 +196,179 @@ export default function UserProfile({
       </div>
 
       {/* Name and Email */}
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ 
-          color: 'var(--text)', 
-          fontSize: fontSize,
-          fontWeight: '500',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis'
-        }}>
-          {displayName}
-        </div>
-        {showEmail && user?.email && (
-          <div style={{ 
-            color: 'var(--gray-med)', 
-            fontSize: '12px',
+      {!showMenu && (
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={{
+            color: 'var(--text)',
+            fontSize: fontSize,
+            fontWeight: '500',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis'
           }}>
-            {user.email}
+            {displayName}
           </div>
-        )}
-      </div>
+          {showEmail && user?.email && (
+            <div style={{
+              color: 'var(--gray-med)',
+              fontSize: '12px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              {user.email}
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Logout Dropdown */}
-      {showLogout && showDropdown && (
+      {/* Upward Menu Dropdown */}
+      {showMenu && showDropdown && (
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '100%',
+            left: '0',
+            background: 'var(--darker-bg)',
+            border: '2px solid #40E0D0',
+            borderRadius: '8px',
+            padding: '8px',
+            minWidth: '200px',
+            marginBottom: '8px',
+            zIndex: 1000,
+            boxShadow: '0 4px 12px rgba(64, 224, 208, 0.3)'
+          }}
+          onMouseEnter={() => setShowDropdown(true)}
+          onMouseLeave={() => setShowDropdown(false)}
+        >
+          {/* User Name Header */}
+          <div style={{
+            padding: '8px 12px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+            marginBottom: '4px'
+          }}>
+            <div style={{
+              color: '#40E0D0',
+              fontSize: '14px',
+              fontWeight: '600',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              {displayName}
+            </div>
+            {user?.email && (
+              <div style={{
+                color: 'var(--gray-med)',
+                fontSize: '11px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {user.email}
+              </div>
+            )}
+          </div>
+
+          {/* Menu Items */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenSettings?.();
+              setShowDropdown(false);
+            }}
+            className="menu-item"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenHardMemory?.();
+              setShowDropdown(false);
+            }}
+            className="menu-item"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Hard Memory
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = '/past-memory';
+              setShowDropdown(false);
+            }}
+            className="menu-item"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Past Memory
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = '/guide';
+              setShowDropdown(false);
+            }}
+            className="menu-item"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+            </svg>
+            Zarvânex Guide
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              window.location.href = '/about';
+              setShowDropdown(false);
+            }}
+            className="menu-item"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 16v-4m0-4h.01" />
+            </svg>
+            About
+          </button>
+
+          <div style={{
+            height: '1px',
+            background: 'rgba(255, 255, 255, 0.1)',
+            margin: '4px 0'
+          }} />
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleLogout();
+            }}
+            className="menu-item"
+            style={{ color: '#ef4444' }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16,17 21,12 16,7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Sign Out
+          </button>
+        </div>
+      )}
+
+      {/* Logout Dropdown (legacy) */}
+      {showLogout && !showMenu && showDropdown && (
         <div
           style={{
             position: 'absolute',
@@ -254,12 +407,12 @@ export default function UserProfile({
               e.currentTarget.style.background = 'none';
             }}
           >
-            <svg 
-              width="16" 
-              height="16" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor" 
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
               strokeWidth="2"
               style={{ marginRight: '8px', verticalAlign: 'middle' }}
             >
