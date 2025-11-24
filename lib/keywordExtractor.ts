@@ -50,7 +50,7 @@ Return ONLY valid JSON with these exact keys. Use empty arrays if nothing found.
         'X-Title': 'Zarvanex',
       },
       body: JSON.stringify({
-        model: 'x-ai/grok-2-1212',
+        model: 'x-ai/grok-4.1-fast:free',
         messages: [
           {
             role: 'user',
