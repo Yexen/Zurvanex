@@ -360,8 +360,8 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
   });
 
   // LOSSLESS STRATEGY: Implement priority-based context budget
-  const CONTEXT_BUDGET = 8000; // Target ~8000 characters for hard memory context
-  const RESERVED_OVERHEAD = 500; // Reserve for headers and separators
+  const CONTEXT_BUDGET = 25000; // Increased to ~25000 characters for hard memory context (models have 128K+ context)
+  const RESERVED_OVERHEAD = 1000; // Reserve for headers and separators
   const AVAILABLE_BUDGET = CONTEXT_BUDGET - RESERVED_OVERHEAD;
   
   console.log('🔋 [LOSSLESS] Context budget:', AVAILABLE_BUDGET, 'characters available');
