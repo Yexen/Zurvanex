@@ -37,18 +37,15 @@ export async function smartHardMemorySearch(
   console.log('[SmartHardMemory] Processing query:', userMessage);
 
   try {
-    // STEP 1: Classify Intent
-    const intent = apiKeys.openrouter
-      ? await classifyIntent(userMessage, apiKeys.openrouter)
-      : 'CONCEPTUAL';
+    // STEP 1 & 2: Classify Intent and Extract Keywords in PARALLEL
+    const [intent, keywords] = apiKeys.openrouter
+      ? await Promise.all([
+          classifyIntent(userMessage, apiKeys.openrouter),
+          extractSmartKeywords(userMessage, 'CONCEPTUAL', apiKeys.openrouter),
+        ])
+      : ['CONCEPTUAL' as const, fallbackKeywordExtraction(userMessage)];
 
     console.log('[SmartHardMemory] Intent:', intent);
-
-    // STEP 2: Extract Keywords
-    const keywords = apiKeys.openrouter
-      ? await extractSmartKeywords(userMessage, intent, apiKeys.openrouter)
-      : fallbackKeywordExtraction(userMessage);
-
     console.log('[SmartHardMemory] Keywords:', keywords);
 
     // STEP 3: Get all memories from Supabase
