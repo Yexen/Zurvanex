@@ -5,8 +5,9 @@
  * Now with 3-tier semantic caching for 70-80% cache hit rate
  */
 
-import { classifyIntent, type IntentType } from './intentClassifier';
-import { extractSmartKeywords, type ExtractedKeywords } from './keywordExtractor';
+import { type IntentType } from './intentClassifier';
+import { type ExtractedKeywords } from './keywordExtractor';
+import { extractIntentAndKeywords } from './combinedExtractor';
 import { lookupEntityFacts, formatEntityFactsForPrompt, type EntityIndex } from './entityIndexer';
 import { getEmbedding } from './embeddingService';
 import {
@@ -140,35 +141,43 @@ export async function processMessageWithSmartSearch(
 
     console.log('[SmartSearch] ❌ Cache miss - Running full search pipeline');
 
-    // STEP 1: Classify Intent (free Gemini)
-    const intent = apiKeys.openrouter
-      ? await classifyIntent(userMessage, apiKeys.openrouter)
-      : 'CONCEPTUAL'; // Fallback
+    // PARALLEL STEP 1-3: Run extraction, embedding, and entity loading in parallel
+    // This reduces 3 sequential API calls to 1 parallel batch (~500ms faster)
+    const startTime = Date.now();
 
+    const [extractionResult, refinedEmbedding, entityIndex] = await Promise.all([
+      // Combined intent + keyword extraction (single API call)
+      apiKeys.openrouter
+        ? extractIntentAndKeywords(userMessage, apiKeys.openrouter)
+        : Promise.resolve({
+            intent: 'CONCEPTUAL' as IntentType,
+            keywords: { entities: [], concepts: [], temporal: [], relational: [], emotional: [] },
+          }),
+
+      // Generate embedding if needed and not already done
+      (async () => {
+        if (!queryEmbedding && apiKeys.openai) {
+          return await getEmbedding(userMessage, apiKeys.openai);
+        }
+        return queryEmbedding;
+      })(),
+
+      // Load entity index
+      memoryStorage.getEntityIndex(),
+    ]);
+
+    const { intent, keywords } = extractionResult;
+    queryEmbedding = refinedEmbedding;
+
+    const parallelTime = Date.now() - startTime;
+    console.log('[SmartSearch] Parallel extraction completed in', parallelTime, 'ms');
     console.log('[SmartSearch] Intent:', intent);
-
-    // STEP 2: Extract Smart Keywords (free Gemini)
-    const keywords = apiKeys.openrouter
-      ? await extractSmartKeywords(userMessage, intent, apiKeys.openrouter)
-      : { entities: [], concepts: [], temporal: [], relational: [], emotional: [] };
-
     console.log('[SmartSearch] Keywords:', keywords);
-
-    // STEP 3: Load Entity Index
-    const entityIndex: EntityIndex = await memoryStorage.getEntityIndex();
     console.log('[SmartSearch] Entity index loaded:', Object.keys(entityIndex).length, 'entities');
 
     // STEP 4: Look up Entity Facts (instant factual knowledge)
     const entityFacts = lookupEntityFacts(keywords.entities, entityIndex);
     console.log('[SmartSearch] Entity facts found:', Object.keys(entityFacts));
-
-    // STEP 5: Generate/Refine Query Embedding (for semantic search)
-    // If we don't have embedding yet (no OpenAI earlier), or need concept-specific embedding
-    if (!queryEmbedding && keywords.concepts.length > 0 && apiKeys.openai) {
-      const conceptText = keywords.concepts.join(' ');
-      queryEmbedding = await getEmbedding(conceptText, apiKeys.openai);
-      console.log('[SmartSearch] Query embedding generated for search');
-    }
 
     // STEP 6: Hybrid Search
     const db = memoryStorage.getDatabase();
