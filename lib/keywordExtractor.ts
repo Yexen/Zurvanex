@@ -21,22 +21,24 @@ export async function extractSmartKeywords(
   intent: IntentType,
   apiKey: string
 ): Promise<ExtractedKeywords> {
-  const prompt = `Extract search terms from this message to find relevant personal context.
+  const prompt = `Extract search keywords from this message to find relevant information in personal memory.
 
 Message: "${message}"
 Intent: ${intent}
 
-Return a JSON object:
-{
-  "entities": ["proper nouns, names, places, brands"],
-  "concepts": ["abstract ideas, themes, topics"],
-  "temporal": ["time references: dates, periods, 'recently', 'when I was'"],
-  "relational": ["relationship words: my partner, uncle, friend"],
-  "emotional": ["emotional context: struggling, happy, worried"]
-}
+Extract these categories:
+- "entities": Proper nouns ONLY (names of people, places, brands). DO NOT include question words like "What/Who/Where/When".
+- "concepts": Important nouns and topics (profession, job, work, project, hobby, etc.)
+- "temporal": Time references (dates, "recently", "yesterday", etc.)
+- "relational": Relationship words (partner, uncle, friend, cat, family, etc.)
+- "emotional": Emotional states (struggling, happy, worried, etc.)
 
-Only include relevant categories. Be specific.
-Return ONLY valid JSON, nothing else.`;
+Examples:
+"What's my uncle's profession?" → {"entities": [], "concepts": ["profession"], "relational": ["uncle"]}
+"Tell me about Lilou" → {"entities": ["Lilou"], "concepts": [], "relational": ["cat"]}
+"When did I move to Paris?" → {"entities": ["Paris"], "concepts": ["move"], "temporal": ["when"]}
+
+Return ONLY valid JSON with these exact keys. Use empty arrays if nothing found.`;
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -48,7 +50,7 @@ Return ONLY valid JSON, nothing else.`;
         'X-Title': 'Zarvanex',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
+        model: 'groq/llama-3.1-8b-instant',
         messages: [
           {
             role: 'user',
@@ -72,6 +74,8 @@ Return ONLY valid JSON, nothing else.`;
     try {
       const keywords = JSON.parse(content) as ExtractedKeywords;
 
+      console.log('[KeywordExtractor] Gemini response:', keywords);
+
       // Validate structure and provide defaults
       return {
         entities: keywords.entities || [],
@@ -81,7 +85,8 @@ Return ONLY valid JSON, nothing else.`;
         emotional: keywords.emotional || [],
       };
     } catch (parseError) {
-      console.error('Error parsing keywords JSON:', parseError, 'Content:', content);
+      console.error('[KeywordExtractor] Error parsing JSON:', parseError, 'Content:', content);
+      console.log('[KeywordExtractor] Using fallback extraction');
       return extractFallbackKeywords(message);
     }
   } catch (error) {
@@ -102,9 +107,10 @@ function extractFallbackKeywords(message: string): ExtractedKeywords {
     emotional: [],
   };
 
-  // Extract capitalized words as potential entities
+  // Extract capitalized words as potential entities (excluding question words)
   const capitalizedWords = message.match(/\b[A-Z][a-z]+\b/g) || [];
-  keywords.entities = [...new Set(capitalizedWords)];
+  const questionWords = new Set(['What', 'Who', 'Where', 'When', 'Why', 'How', 'Which', 'Whose', 'Whom']);
+  keywords.entities = [...new Set(capitalizedWords.filter(word => !questionWords.has(word)))];
 
   // Extract temporal keywords
   const temporalPatterns = [
@@ -121,7 +127,7 @@ function extractFallbackKeywords(message: string): ExtractedKeywords {
   });
 
   // Extract relational keywords
-  const relationalPatterns = /\b(my|partner|friend|family|uncle|aunt|parent|sibling|brother|sister|wife|husband|boyfriend|girlfriend|cat|dog|pet)\b/gi;
+  const relationalPatterns = /\b(my|partner|friend|family|uncle|aunt|parent|sibling|brother|sister|wife|husband|boyfriend|girlfriend|cat|dog|pet|father|mother|dad|mom|son|daughter|child|children|cousin|nephew|niece|grandparent|grandmother|grandfather)\b/gi;
   const relationalMatches = message.match(relationalPatterns);
   if (relationalMatches) {
     keywords.relational = [...new Set(relationalMatches.map(m => m.toLowerCase()))];
@@ -136,12 +142,15 @@ function extractFallbackKeywords(message: string): ExtractedKeywords {
 
   // Extract concept keywords (nouns that aren't capitalized)
   const words = message.toLowerCase().split(/\s+/);
-  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'as', 'from', 'that', 'this', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their']);
+  const stopWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'may', 'might', 'must', 'can', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'as', 'from', 'that', 'this', 'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 'my', 'your', 'his', 'her', 'its', 'our', 'their', 'what', 'who', 'where', 'when', 'why', 'how']);
 
-  keywords.concepts = words.filter(word =>
+  // Clean punctuation from words
+  const cleanWords = words.map(word => word.replace(/[?.!,;:'"]/, ''));
+
+  keywords.concepts = cleanWords.filter(word =>
     word.length > 3 &&
     !stopWords.has(word) &&
-    !keywords.entities.includes(word) &&
+    !keywords.entities.map(e => e.toLowerCase()).includes(word) &&
     !keywords.temporal.includes(word) &&
     !keywords.relational.includes(word) &&
     !keywords.emotional.includes(word)

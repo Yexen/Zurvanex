@@ -18,17 +18,23 @@ export async function classifyIntent(
   message: string,
   apiKey: string
 ): Promise<IntentType> {
-  const prompt = `Classify this message into ONE category:
-- FACTUAL: Asking for specific facts, names, numbers, dates
-- NARRATIVE: Asking how/why something happened, wanting a story
-- CONCEPTUAL: Asking about ideas, theories, explanations
-- RELATIONAL: Asking about people, relationships, dynamics
-- EMOTIONAL: Expressing feelings, seeking support
-- TASK: Wanting help with something specific
+  const prompt = `Classify this user message into ONE category. Choose the MOST SPECIFIC category:
+
+- FACTUAL: Asking for specific facts (names, numbers, dates, "what is X", "who is Y", "when did Z")
+- RELATIONAL: Asking about people or relationships ("my partner", "my cat", "uncle", "friend")
+- NARRATIVE: Asking how/why something happened, wanting a story or sequence of events
+- CONCEPTUAL: Asking about ideas, theories, or explanations (abstract topics)
+- EMOTIONAL: Expressing feelings, seeking emotional support
+- TASK: Wanting help with something specific (not just asking for information)
 
 Message: "${message}"
 
-Respond with ONLY the category name (one word).`;
+Rules:
+- If asking about a person → RELATIONAL
+- If asking for a specific fact (who/what/where/when) → FACTUAL
+- If abstract/philosophical → CONCEPTUAL
+
+Respond with ONLY the category name (one word, uppercase).`;
 
   try {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -40,7 +46,7 @@ Respond with ONLY the category name (one word).`;
         'X-Title': 'Zarvanex',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.0-flash-exp:free',
+        model: 'groq/llama-3.1-8b-instant',
         messages: [
           {
             role: 'user',
@@ -60,12 +66,15 @@ Respond with ONLY the category name (one word).`;
     const data = await response.json();
     const intent = data.choices[0]?.message?.content?.trim().toUpperCase() || 'CONCEPTUAL';
 
+    console.log('[IntentClassifier] Gemini response:', intent);
+
     // Validate intent is one of the expected types
     const validIntents: IntentType[] = ['FACTUAL', 'NARRATIVE', 'CONCEPTUAL', 'RELATIONAL', 'EMOTIONAL', 'TASK'];
     if (validIntents.includes(intent as IntentType)) {
       return intent as IntentType;
     }
 
+    console.warn('[IntentClassifier] Invalid intent from Gemini, using fallback:', intent);
     return 'CONCEPTUAL'; // Default fallback
   } catch (error) {
     console.error('Error classifying intent:', error);

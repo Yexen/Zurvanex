@@ -82,6 +82,11 @@ export async function smartHardMemorySearch(
     const rankedMemories = rankMemories(searchResults, intent);
 
     console.log('[SmartHardMemory] Ranked memories:', rankedMemories.length);
+    console.log('[SmartHardMemory] Top 5 memories:', rankedMemories.slice(0, 5).map(m => ({
+      title: m.title,
+      contentPreview: m.content.substring(0, 100) + '...',
+      tags: m.tags,
+    })));
 
     // Return top results (limit based on intent)
     const limit = intent === 'FACTUAL' ? 3 : intent === 'NARRATIVE' ? 5 : 4;
@@ -175,6 +180,7 @@ function performHybridSearch(
   };
 
   const queryLower = originalQuery.toLowerCase();
+  const checkedMemories: string[] = [];
 
   for (const memory of memories) {
     const titleContent = (memory.title + ' ' + memory.content).toLowerCase();
@@ -182,41 +188,58 @@ function performHybridSearch(
 
     // EXACT MATCH: Query appears in title/content
     if (titleContent.includes(queryLower)) {
+      console.log(`[SmartHardMemory] ✅ EXACT match: "${memory.title}"`);
       results.exactMatches.push({ memory, score: 10 });
       continue;
     }
 
     // ENTITY MATCH: Entity tags or entity mentions
     let entityScore = 0;
+    const matchedEntities: string[] = [];
     for (const entity of keywords.entities) {
       const entityTag = `entity:${entity.toLowerCase()}`;
       if (memory.tags.includes(entityTag)) {
         entityScore += 5;
+        matchedEntities.push(`tag:${entity}`);
       }
       if (titleContentOriginal.includes(entity)) {
         entityScore += 3;
+        matchedEntities.push(`mention:${entity}`);
       }
     }
     if (entityScore > 0) {
+      console.log(`[SmartHardMemory] 🏷️ ENTITY match: "${memory.title}" (score: ${entityScore}, matched: ${matchedEntities.join(', ')})`);
       results.entityMatches.push({ memory, score: entityScore });
       continue;
     }
 
     // CONCEPT MATCH: Keywords in content
     let conceptScore = 0;
+    const matchedConcepts: string[] = [];
     for (const concept of keywords.concepts) {
       if (titleContent.includes(concept.toLowerCase())) {
         conceptScore += 2;
+        matchedConcepts.push(concept);
       }
     }
     for (const relational of keywords.relational) {
       if (titleContent.includes(relational)) {
         conceptScore += 2;
+        matchedConcepts.push(relational);
       }
     }
     if (conceptScore > 0) {
+      console.log(`[SmartHardMemory] 💡 CONCEPT match: "${memory.title}" (score: ${conceptScore}, matched: ${matchedConcepts.join(', ')})`);
       results.conceptMatches.push({ memory, score: conceptScore });
+    } else {
+      checkedMemories.push(memory.title);
     }
+  }
+
+  if (checkedMemories.length > 0 && checkedMemories.length <= 3) {
+    console.log(`[SmartHardMemory] ❌ No matches for: ${checkedMemories.join(', ')}`);
+  } else if (checkedMemories.length > 3) {
+    console.log(`[SmartHardMemory] ❌ No matches for ${checkedMemories.length} memories`);
   }
 
   return results;
@@ -265,6 +288,12 @@ function rankMemories(searchResults: SearchResults, intent: IntentType): Memory[
 
   // Sort by score
   scored.sort((a, b) => b.totalScore - a.totalScore);
+
+  // Debug: Log top scored memories
+  console.log('[SmartHardMemory] 🎯 Final Scores:', scored.slice(0, 5).map(s => ({
+    title: s.memory.title,
+    score: s.totalScore.toFixed(2),
+  })));
 
   return scored.map(s => s.memory);
 }
