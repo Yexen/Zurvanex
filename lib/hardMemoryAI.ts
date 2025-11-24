@@ -396,6 +396,11 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
       // INCLUDE: Full memory fits in budget
       console.log(`✅ [LOSSLESS] INCLUDING full memory "${memory.title}" (${fullMemorySize} chars)`);
       
+      // FILE DEBUG STATEMENT
+      console.log(`📁 ${memory.title} loaded: YES`);
+      console.log(`📁 File size: ${memory.content.length} characters`);
+      console.log(`📁 First 200 characters of file: ${memory.content.substring(0, 200)}`);
+      
       parts.push(memoryHeader);
       parts.push(memory.content); // FULL CONTENT - NO COMPRESSION
       
@@ -409,6 +414,11 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
     } else {
       // SKIP: Memory doesn't fit, honest truncation
       console.log(`❌ [LOSSLESS] SKIPPING memory "${memory.title}" (${fullMemorySize} chars > ${currentBudget} remaining)`);
+      
+      // FILE DEBUG STATEMENT
+      console.log(`📁 ${memory.title} loaded: NO`);
+      console.log(`📁 File size: ${memory.content.length} characters`);
+      console.log(`📁 First 200 characters of file: ${memory.content.substring(0, 200)}`);
       
       // If this is critical memory (first result), include notification
       if (i === 0) {
