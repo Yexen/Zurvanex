@@ -359,81 +359,68 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
     });
   });
 
+  // LOSSLESS STRATEGY: Implement priority-based context budget
+  const CONTEXT_BUDGET = 8000; // Target ~8000 characters for hard memory context
+  const RESERVED_OVERHEAD = 500; // Reserve for headers and separators
+  const AVAILABLE_BUDGET = CONTEXT_BUDGET - RESERVED_OVERHEAD;
+  
+  console.log('🔋 [LOSSLESS] Context budget:', AVAILABLE_BUDGET, 'characters available');
+
   const parts: string[] = [
     '\n## 🗃️ Hard Memory Context',
     `Found ${context.foundMemories.length} relevant memories from your persistent knowledge base:`
   ];
 
-  context.foundMemories.forEach((memory, index) => {
+  // LOSSLESS STRATEGY: Priority-based memory selection with full content
+  let currentBudget = AVAILABLE_BUDGET;
+  let includedMemories = 0;
+  
+  for (let i = 0; i < context.foundMemories.length; i++) {
+    const memory = context.foundMemories[i];
     const tags = memory.tags.length > 0 ? ` (${memory.tags.map(t => `#${t}`).join(' ')})` : '';
     const date = memory.createdAt.toLocaleDateString();
     
-    parts.push(`\n**${index + 1}. ${memory.title}**${tags}`);
-    parts.push(`*Created: ${date}*`);
+    // Calculate full memory size with headers
+    const memoryHeader = `\n**${i + 1}. ${memory.title}**${tags}\n*Created: ${date}*\n`;
+    const fullMemorySize = memoryHeader.length + memory.content.length + 50; // +50 for separator
     
-    // Smart content inclusion strategy
-    let content = memory.content;
-    const originalLength = content.length;
-    
-    // For factual queries, try to include sections that contain query keywords
-    const queryKeywords = context.searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
-    const hasQueryKeywords = queryKeywords.some(keyword => 
-      content.toLowerCase().includes(keyword) || memory.title.toLowerCase().includes(keyword)
-    );
-    
-    console.log(`📊 [DIAGNOSTIC] Memory "${memory.title}" compression check:`, {
-      originalLength,
-      hasQueryKeywords,
-      queryKeywords,
-      willCompress: originalLength > 1500 || (originalLength > 800 && originalLength <= 1500)
+    console.log(`🔋 [LOSSLESS] Memory "${memory.title}":`, {
+      contentSize: memory.content.length,
+      totalSize: fullMemorySize,
+      remainingBudget: currentBudget,
+      willFit: fullMemorySize <= currentBudget
     });
     
-    if (content.length > 1500) {
-      if (hasQueryKeywords) {
-        // Find and include sections around query keywords
-        const lowerContent = content.toLowerCase();
-        const keywordPositions = queryKeywords.map(keyword => 
-          lowerContent.indexOf(keyword)
-        ).filter(pos => pos >= 0);
-        
-        if (keywordPositions.length > 0) {
-          // Include content around the first keyword match
-          const keywordPos = Math.min(...keywordPositions);
-          const start = Math.max(0, keywordPos - 400);
-          const end = Math.min(content.length, keywordPos + 800);
-          const newContent = (start > 0 ? '... ' : '') + content.substring(start, end) + (end < content.length ? ' ...' : '');
-          console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (keyword-based)`);
-          content = newContent;
-        } else {
-          // Fallback to beginning + end
-          const newContent = content.substring(0, 1000) + '\n\n[... content truncated ...]\n\n' + content.substring(content.length - 300);
-          console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (beginning+end)`);
-          content = newContent;
-        }
-      } else {
-        // For very long content without query keywords, include beginning + end
-        const newContent = content.substring(0, 1000) + '\n\n[... content truncated ...]\n\n' + content.substring(content.length - 300);
-        console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (no keywords)`);
-        content = newContent;
+    // DECISION POINT: Include full memory or skip entirely
+    if (fullMemorySize <= currentBudget) {
+      // INCLUDE: Full memory fits in budget
+      console.log(`✅ [LOSSLESS] INCLUDING full memory "${memory.title}" (${fullMemorySize} chars)`);
+      
+      parts.push(memoryHeader);
+      parts.push(memory.content); // FULL CONTENT - NO COMPRESSION
+      
+      if (i < context.foundMemories.length - 1) {
+        parts.push('---'); // Separator
       }
-    } else if (content.length > 800) {
-      // For moderately long content, include first 600 chars
-      const newContent = content.substring(0, 600) + '...';
-      console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (moderate)`);
-      content = newContent;
+      
+      currentBudget -= fullMemorySize;
+      includedMemories++;
+      
     } else {
-      console.log(`📊 [DIAGNOSTIC] NO COMPRESSION: "${memory.title}" ${originalLength} chars (under threshold)`);
+      // SKIP: Memory doesn't fit, honest truncation
+      console.log(`❌ [LOSSLESS] SKIPPING memory "${memory.title}" (${fullMemorySize} chars > ${currentBudget} remaining)`);
+      
+      // If this is critical memory (first result), include notification
+      if (i === 0) {
+        parts.push(`\n⚠️ **Memory "${memory.title}" too large for context** (${memory.content.length} chars)`);
+        parts.push(`*Use "./recall ${memory.title}" for full content*`);
+      }
+      
+      break; // Stop including memories once budget is exceeded
     }
-    // For content <= 800 chars, include everything
-    
-    if (content.trim()) {
-      parts.push(content);
-    }
-    
-    if (index < context.foundMemories.length - 1) {
-      parts.push('---'); // Separator between memories
-    }
-  });
+  }
+  
+  console.log(`🔋 [LOSSLESS] Final result: ${includedMemories}/${context.foundMemories.length} memories included, ${AVAILABLE_BUDGET - currentBudget}/${AVAILABLE_BUDGET} budget used`);
 
   parts.push('\n💡 Use this information to provide more informed and contextual responses. Reference these memories when relevant, and suggest creating new memories for important information shared in our conversation.');
 
