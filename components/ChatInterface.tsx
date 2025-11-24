@@ -359,13 +359,13 @@ function ChatInterfaceInner() {
   // Helper function to send message to OpenRouter API with streaming
   const sendOpenRouterMessage = async (messages: Message[], modelId: string): Promise<string> => {
     // Generate system prompt from user preferences
-    console.log('[DEBUG] sendOpenRouterMessage: Generating system prompt', { 
-      hasPreferences: !!preferences, 
+    console.log('[DEBUG] sendOpenRouterMessage: Generating system prompt', {
+      hasPreferences: !!preferences,
       shouldInclude: shouldIncludePersonalization(preferences),
-      preferencesNickname: preferences?.nickname 
+      preferencesNickname: preferences?.nickname
     });
-    
-    let systemPrompt = shouldIncludePersonalization(preferences) 
+
+    let systemPrompt = shouldIncludePersonalization(preferences)
       ? generateSystemPrompt(preferences)
       : "You are Zarvânex, a helpful AI assistant.";
 
@@ -373,18 +373,51 @@ function ChatInterfaceInner() {
     if (user?.id && messages.length > 0) {
       const currentQuery = messages[messages.length - 1]?.content || '';
       try {
+        // Add smart hard memory search (intelligent retrieval from Supabase)
+        try {
+          const smartMemoryResult = await smartHardMemorySearch(
+            currentQuery,
+            user.id,
+            {
+              openrouter: process.env.NEXT_PUBLIC_OPENROUTER_API_KEY,
+            }
+          );
+
+          if (smartMemoryResult.memories.length > 0) {
+            console.log('[SmartHardMemory] Found memories:', {
+              intent: smartMemoryResult.intent,
+              count: smartMemoryResult.memories.length,
+              totalMatches: smartMemoryResult.totalMatches,
+            });
+
+            // Format memories for prompt
+            const memoryPrompt = formatHardMemoryForPrompt({
+              foundMemories: smartMemoryResult.memories,
+              relevantCount: smartMemoryResult.totalMatches,
+              searchQuery: currentQuery,
+              tags: [],
+            });
+
+            if (memoryPrompt) {
+              systemPrompt += memoryPrompt;
+            }
+          }
+        } catch (smartMemoryError) {
+          console.error('[SmartHardMemory] Error (non-critical, using fallback):', smartMemoryError);
+
+          // Fallback to original hard memory search
+          const hardMemoryContext = await getHardMemoryContext(user.id, currentQuery);
+          const hardMemoryPrompt = formatHardMemoryForPrompt(hardMemoryContext);
+          if (hardMemoryPrompt) {
+            systemPrompt += hardMemoryPrompt;
+          }
+        }
+
         // Add conversational memory
         const memoryContext = await getConversationMemory(user.id, currentQuery);
         const memoryPrompt = formatMemoryForPrompt(memoryContext, preferences);
         if (memoryPrompt) {
           systemPrompt += memoryPrompt;
-        }
-        
-        // Add hard memory context
-        const hardMemoryContext = await getHardMemoryContext(user.id, currentQuery);
-        const hardMemoryPrompt = formatHardMemoryForPrompt(hardMemoryContext);
-        if (hardMemoryPrompt) {
-          systemPrompt += hardMemoryPrompt;
         }
       } catch (error) {
         console.error('🚨 Error fetching memory context:', error);
