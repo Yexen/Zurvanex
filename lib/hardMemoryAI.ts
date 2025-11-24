@@ -347,6 +347,18 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
     return '';
   }
 
+  // DIAGNOSTIC LOGGING - Phase 1
+  console.log('📊 [DIAGNOSTIC] formatHardMemoryForPrompt called with:');
+  console.log('📊 [DIAGNOSTIC] - Query:', context.searchQuery);
+  console.log('📊 [DIAGNOSTIC] - Memories found:', context.foundMemories.length);
+  context.foundMemories.forEach((memory, i) => {
+    console.log(`📊 [DIAGNOSTIC] Memory ${i+1}:`, {
+      title: memory.title,
+      originalLength: memory.content.length,
+      firstChars: memory.content.substring(0, 100) + '...'
+    });
+  });
+
   const parts: string[] = [
     '\n## 🗃️ Hard Memory Context',
     `Found ${context.foundMemories.length} relevant memories from your persistent knowledge base:`
@@ -361,12 +373,20 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
     
     // Smart content inclusion strategy
     let content = memory.content;
+    const originalLength = content.length;
     
     // For factual queries, try to include sections that contain query keywords
     const queryKeywords = context.searchQuery.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const hasQueryKeywords = queryKeywords.some(keyword => 
       content.toLowerCase().includes(keyword) || memory.title.toLowerCase().includes(keyword)
     );
+    
+    console.log(`📊 [DIAGNOSTIC] Memory "${memory.title}" compression check:`, {
+      originalLength,
+      hasQueryKeywords,
+      queryKeywords,
+      willCompress: originalLength > 1500 || (originalLength > 800 && originalLength <= 1500)
+    });
     
     if (content.length > 1500) {
       if (hasQueryKeywords) {
@@ -381,18 +401,28 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
           const keywordPos = Math.min(...keywordPositions);
           const start = Math.max(0, keywordPos - 400);
           const end = Math.min(content.length, keywordPos + 800);
-          content = (start > 0 ? '... ' : '') + content.substring(start, end) + (end < content.length ? ' ...' : '');
+          const newContent = (start > 0 ? '... ' : '') + content.substring(start, end) + (end < content.length ? ' ...' : '');
+          console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (keyword-based)`);
+          content = newContent;
         } else {
           // Fallback to beginning + end
-          content = content.substring(0, 1000) + '\n\n[... content truncated ...]\n\n' + content.substring(content.length - 300);
+          const newContent = content.substring(0, 1000) + '\n\n[... content truncated ...]\n\n' + content.substring(content.length - 300);
+          console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (beginning+end)`);
+          content = newContent;
         }
       } else {
         // For very long content without query keywords, include beginning + end
-        content = content.substring(0, 1000) + '\n\n[... content truncated ...]\n\n' + content.substring(content.length - 300);
+        const newContent = content.substring(0, 1000) + '\n\n[... content truncated ...]\n\n' + content.substring(content.length - 300);
+        console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (no keywords)`);
+        content = newContent;
       }
     } else if (content.length > 800) {
       // For moderately long content, include first 600 chars
-      content = content.substring(0, 600) + '...';
+      const newContent = content.substring(0, 600) + '...';
+      console.log(`📊 [DIAGNOSTIC] COMPRESSION: "${memory.title}" ${originalLength} → ${newContent.length} (moderate)`);
+      content = newContent;
+    } else {
+      console.log(`📊 [DIAGNOSTIC] NO COMPRESSION: "${memory.title}" ${originalLength} chars (under threshold)`);
     }
     // For content <= 800 chars, include everything
     
@@ -407,7 +437,15 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
 
   parts.push('\n💡 Use this information to provide more informed and contextual responses. Reference these memories when relevant, and suggest creating new memories for important information shared in our conversation.');
 
-  return parts.join('\n');
+  const finalPrompt = parts.join('\n');
+  
+  // DIAGNOSTIC LOGGING - Final result
+  console.log('📊 [DIAGNOSTIC] Final formatHardMemoryForPrompt result:');
+  console.log('📊 [DIAGNOSTIC] - Total prompt length:', finalPrompt.length, 'characters');
+  console.log('📊 [DIAGNOSTIC] - Estimated tokens:', Math.ceil(finalPrompt.length / 4));
+  console.log('📊 [DIAGNOSTIC] - First 200 chars:', finalPrompt.substring(0, 200) + '...');
+
+  return finalPrompt;
 }
 
 /**
