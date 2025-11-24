@@ -14,7 +14,7 @@ interface SidebarProps {
   onNewChat: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation?: (id: string) => void;
-  onRenameConversation?: (id: string) => void;
+  onRenameConversation?: (id: string, newTitle: string) => void;
   onOpenHardMemory?: () => void;
   className?: string;
 }
