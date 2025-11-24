@@ -49,22 +49,11 @@ export async function smartHardMemorySearch(
       await hardMemoryCache.initialize();
     }
 
-    // EARLY STEP: Generate query embedding for cache lookup (if OpenAI available)
-    let queryEmbedding: number[] | null = null;
-    if (apiKeys.openai) {
-      try {
-        queryEmbedding = await getEmbedding(userMessage, apiKeys.openai);
-        console.log('[SmartHardMemory] Query embedding generated for cache');
-      } catch (error) {
-        console.warn('[SmartHardMemory] Failed to generate embedding:', error);
-      }
-    }
-
-    // CACHE CHECK FIRST
+    // CACHE CHECK FIRST (Tier 1 & 2 only - no embedding needed)
     const cacheResult = await hardMemoryCache.lookup(
       userMessage,
       userId,
-      queryEmbedding || undefined
+      undefined // Skip embedding for now - only check exact matches
     );
 
     if (cacheResult.hit && cacheResult.entry) {
@@ -78,16 +67,23 @@ export async function smartHardMemorySearch(
 
     console.log('[SmartHardMemory] ❌ Cache miss - Running full search');
 
-    // STEP 1 & 2: Classify Intent and Extract Keywords in PARALLEL
-    const [intent, keywords] = apiKeys.openrouter
+    // STEP 1-3: Classify Intent, Extract Keywords, and Generate Embedding in PARALLEL
+    const [intent, keywords, queryEmbedding] = apiKeys.openrouter
       ? await Promise.all([
           classifyIntent(userMessage, apiKeys.openrouter),
           extractSmartKeywords(userMessage, 'CONCEPTUAL', apiKeys.openrouter),
+          // Generate embedding for future Tier 3 cache hits (optional)
+          apiKeys.openai
+            ? getEmbedding(userMessage, apiKeys.openai).catch(() => null)
+            : Promise.resolve(null),
         ])
-      : ['CONCEPTUAL' as const, fallbackKeywordExtraction(userMessage)];
+      : ['CONCEPTUAL' as const, fallbackKeywordExtraction(userMessage), null] as const;
 
     console.log('[SmartHardMemory] Intent:', intent);
     console.log('[SmartHardMemory] Keywords:', keywords);
+    if (queryEmbedding) {
+      console.log('[SmartHardMemory] Embedding generated for future cache similarity matching');
+    }
 
     // STEP 3: Get all memories from Supabase
     const allMemories = await hardMemorySupabase.getAllMemories(userId);
