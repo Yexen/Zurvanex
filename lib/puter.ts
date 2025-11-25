@@ -99,7 +99,12 @@ export async function sendPuterMessage(
       let fullResponse = '';
 
       // Check if it's an AsyncGenerator (Puter's format)
-      if (stream && typeof stream[Symbol.asyncIterator] === 'function') {
+      // TypeScript type guard for async iterables
+      const isAsyncIterable = (obj: any): obj is AsyncIterable<any> => {
+        return obj && typeof obj[Symbol.asyncIterator] === 'function';
+      };
+
+      if (isAsyncIterable(stream)) {
         console.log('Processing AsyncGenerator...');
         let chunkCount = 0;
 
