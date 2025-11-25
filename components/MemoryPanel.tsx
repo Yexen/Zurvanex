@@ -8,6 +8,7 @@ import { invalidateCacheForChunk, invalidateAllCache } from '@/lib/smartSearch';
 import FolderTree from './FolderTree';
 import MemoryEditor from './MemoryEditor';
 import type { MemoryView, MemoryPanelState, Memory, Folder, TreeNode } from '@/types/memory';
+import JSZip from 'jszip';
 
 export default function MemoryPanel() {
   const { user } = useAuth();
@@ -41,6 +42,7 @@ export default function MemoryPanel() {
   const [searchResults, setSearchResults] = useState<Memory[]>([]);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const zipInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize storage and load data
   useEffect(() => {
@@ -607,6 +609,132 @@ export default function MemoryPanel() {
     return null;
   };
 
+  const handleImportZip = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0 || !user?.id) return;
+
+    const zipFile = files[0];
+    if (!zipFile.name.toLowerCase().endsWith('.zip')) {
+      alert('Please select a valid ZIP file');
+      return;
+    }
+
+    try {
+      const zip = new JSZip();
+      const zipContent = await zip.loadAsync(zipFile);
+
+      // Parse ZIP structure and create memories
+      // folderPathToId maps folder paths to their memory IDs
+      const folderPathToId: { [path: string]: string } = {};
+      let imported = 0;
+      let failed = 0;
+
+      // First pass: Create folder memories for all directories
+      const entries = Object.keys(zipContent.files);
+      const folders = entries.filter(path => zipContent.files[path].dir).sort();
+
+      for (const folderPath of folders) {
+        const pathParts = folderPath.replace(/\/$/, '').split('/');
+        const folderName = pathParts[pathParts.length - 1];
+
+        if (!folderName) continue; // Skip root
+
+        // Determine parent folder
+        const parentPath = pathParts.slice(0, -1).join('/');
+        const parentId = parentPath ? folderPathToId[parentPath + '/'] : state.selectedFolderId;
+
+        try {
+          const memoryData = {
+            title: folderName,
+            content: `📁 Folder imported from ZIP: ${folderPath}`,
+            tags: ['imported-folder', 'from-zip'],
+            folderId: parentId,
+            userId: user.id,
+          };
+
+          let savedMemory;
+          if (isSupabaseAvailable()) {
+            savedMemory = await hardMemorySupabase.saveMemory(memoryData);
+          } else {
+            savedMemory = await memoryStorage.saveMemory(memoryData);
+          }
+
+          // Store folder memory ID for children to reference
+          folderPathToId[folderPath] = savedMemory.id;
+          imported++;
+        } catch (error) {
+          console.error(`Error creating folder ${folderPath}:`, error);
+          failed++;
+        }
+      }
+
+      // Second pass: Create file memories
+      const fileEntries = entries.filter(path => !zipContent.files[path].dir);
+
+      for (const filePath of fileEntries) {
+        try {
+          const zipEntry = zipContent.files[filePath];
+          const pathParts = filePath.split('/');
+          const fileName = pathParts[pathParts.length - 1];
+
+          // Skip system files
+          if (fileName.startsWith('.') || fileName === '__MACOSX') continue;
+
+          // Get content based on file type
+          let content: string;
+          const lowerFileName = fileName.toLowerCase();
+
+          if (lowerFileName.endsWith('.txt') || lowerFileName.endsWith('.md')) {
+            content = await zipEntry.async('text');
+          } else if (lowerFileName.endsWith('.html')) {
+            const html = await zipEntry.async('text');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            content = doc.body.textContent || doc.body.innerText || '';
+          } else {
+            // For other files, just store file info
+            const blob = await zipEntry.async('blob');
+            content = `📄 File: ${fileName}\nSize: ${blob.size} bytes\nType: ${blob.type || 'unknown'}\n\nImported from ZIP. Original content not text-based.`;
+          }
+
+          // Determine parent folder
+          const parentPath = pathParts.slice(0, -1).join('/');
+          const parentId = parentPath ? folderPathToId[parentPath + '/'] : state.selectedFolderId;
+
+          const memoryData = {
+            title: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
+            content,
+            tags: ['imported-file', 'from-zip', `path:${filePath}`],
+            folderId: parentId,
+            userId: user.id,
+          };
+
+          if (isSupabaseAvailable()) {
+            await hardMemorySupabase.saveMemory(memoryData);
+          } else {
+            await memoryStorage.saveMemory(memoryData);
+          }
+
+          imported++;
+        } catch (error) {
+          console.error(`Error importing file ${filePath}:`, error);
+          failed++;
+        }
+      }
+
+      alert(`✅ Successfully imported ${imported} items from ZIP!\n${failed > 0 ? `⚠️ ${failed} items failed to import.` : ''}`);
+      await loadData();
+
+      // Reset file input
+      if (zipInputRef.current) {
+        zipInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error processing ZIP file:', error);
+      alert('❌ Error processing ZIP file. Please try again.');
+    }
+  }, [user?.id, state.selectedFolderId]);
+
   const handleSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -794,6 +922,36 @@ export default function MemoryPanel() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
             </svg>
             Import
+          </button>
+
+          <input
+            ref={zipInputRef}
+            type="file"
+            accept=".zip,application/zip"
+            onChange={handleImportZip}
+            style={{ display: 'none' }}
+          />
+
+          <button
+            onClick={() => zipInputRef.current?.click()}
+            style={{
+              padding: '8px 16px',
+              background: 'rgba(168, 85, 247, 0.1)',
+              color: '#a855f7',
+              border: '1px solid rgba(168, 85, 247, 0.3)',
+              borderRadius: '6px',
+              fontSize: '14px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+            </svg>
+            Import ZIP
           </button>
         </div>
       </div>
