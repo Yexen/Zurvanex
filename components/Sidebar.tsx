@@ -40,7 +40,6 @@ export default function Sidebar({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
   const [selectedChats, setSelectedChats] = useState<Set<string>>(new Set());
-  const [isSelectMode, setIsSelectMode] = useState(false);
   const [hoveredChatId, setHoveredChatId] = useState<string | null>(null);
   const [infoConversationId, setInfoConversationId] = useState<string | null>(null);
   const [analysisConversationId, setAnalysisConversationId] = useState<string | null>(null);
@@ -123,135 +122,148 @@ export default function Sidebar({
   const totalChats = conversations.length;
   const hasMoreChats = totalChats > MAX_VISIBLE_CHATS;
 
-  // Multi-select handlers
-  const handleSelectAll = () => {
-    if (selectedChats.size === conversations.length) {
-      setSelectedChats(new Set());
+  // Toggle selection for a conversation
+  const toggleSelection = (convId: string) => {
+    const newSelected = new Set(selectedChats);
+    if (newSelected.has(convId)) {
+      newSelected.delete(convId);
     } else {
-      setSelectedChats(new Set(conversations.map(c => c.id)));
+      newSelected.add(convId);
     }
+    setSelectedChats(newSelected);
   };
 
-  const handleBulkDelete = () => {
-    if (selectedChats.size > 0) {
-      setDeleteConfirmId('multiple');
-    }
+  // Chat item action buttons component - now shows on any hovered conversation
+  const ChatItemActions = ({ conv, isHovered }: { conv: Conversation; isHovered: boolean }) => {
+    const isSelected = selectedChats.has(conv.id);
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '4px',
+          right: '8px',
+          display: 'flex',
+          gap: '4px',
+          opacity: isHovered || isSelected ? 1 : 0,
+          transition: 'opacity 0.2s ease',
+          background: 'linear-gradient(to right, transparent, var(--darker-bg) 20%)',
+          paddingLeft: '16px',
+        }}
+      >
+        {/* Select checkbox */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            toggleSelection(conv.id);
+          }}
+          style={{
+            padding: '4px',
+            borderRadius: '4px',
+            border: 'none',
+            background: isSelected ? 'var(--teal-med)' : 'rgba(255, 255, 255, 0.1)',
+            color: isSelected ? 'white' : 'var(--gray-light)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          title={isSelected ? 'Deselect' : 'Select'}
+        >
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {isSelected ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            )}
+          </svg>
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setEditingId(conv.id);
+            setEditingTitle(conv.title);
+          }}
+          style={{
+            padding: '4px',
+            borderRadius: '4px',
+            border: 'none',
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: 'var(--gray-light)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          title="Rename"
+        >
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          </svg>
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setDeleteConfirmId(conv.id);
+          }}
+          style={{
+            padding: '4px',
+            borderRadius: '4px',
+            border: 'none',
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: 'var(--gray-light)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          title="Delete"
+        >
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setInfoConversationId(conv.id);
+          }}
+          style={{
+            padding: '4px',
+            borderRadius: '4px',
+            border: 'none',
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: 'var(--gray-light)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          title="Info"
+        >
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setAnalysisConversationId(conv.id);
+          }}
+          style={{
+            padding: '4px',
+            borderRadius: '4px',
+            border: 'none',
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: 'var(--gray-light)',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+          }}
+          title="Analyze"
+        >
+          <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          </svg>
+        </button>
+      </div>
+    );
   };
-
-  const handleBulkAnalysis = () => {
-    if (selectedChats.size === 1) {
-      setAnalysisConversationId(Array.from(selectedChats)[0]);
-    }
-  };
-
-  const handleBulkInfo = () => {
-    if (selectedChats.size === 1) {
-      setInfoConversationId(Array.from(selectedChats)[0]);
-    }
-  };
-
-  // Chat item action buttons component
-  const ChatItemActions = ({ conv, isHovered }: { conv: Conversation; isHovered: boolean }) => (
-    <div
-      style={{
-        position: 'absolute',
-        bottom: '4px',
-        right: '8px',
-        display: 'flex',
-        gap: '4px',
-        opacity: isHovered ? 1 : 0,
-        transition: 'opacity 0.2s ease',
-        background: 'linear-gradient(to right, transparent, var(--darker-bg) 20%)',
-        paddingLeft: '16px',
-      }}
-    >
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setEditingId(conv.id);
-          setEditingTitle(conv.title);
-        }}
-        style={{
-          padding: '4px',
-          borderRadius: '4px',
-          border: 'none',
-          background: 'rgba(255, 255, 255, 0.1)',
-          color: 'var(--gray-light)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-        title="Rename"
-      >
-        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setDeleteConfirmId(conv.id);
-        }}
-        style={{
-          padding: '4px',
-          borderRadius: '4px',
-          border: 'none',
-          background: 'rgba(255, 255, 255, 0.1)',
-          color: 'var(--gray-light)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-        title="Delete"
-      >
-        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-        </svg>
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setInfoConversationId(conv.id);
-        }}
-        style={{
-          padding: '4px',
-          borderRadius: '4px',
-          border: 'none',
-          background: 'rgba(255, 255, 255, 0.1)',
-          color: 'var(--gray-light)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-        title="Info"
-      >
-        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setAnalysisConversationId(conv.id);
-        }}
-        style={{
-          padding: '4px',
-          borderRadius: '4px',
-          border: 'none',
-          background: 'rgba(255, 255, 255, 0.1)',
-          color: 'var(--gray-light)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-        }}
-        title="Analyze"
-      >
-        <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      </button>
-    </div>
-  );
 
   // Chat List Popup Component
   const ChatListPopup = () => (
@@ -390,138 +402,54 @@ export default function Sidebar({
             All chats ({totalChats})
           </button>
 
-          {/* Select mode toggle and actions */}
-          <div style={{
-            margin: '0 16px 8px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-          }}>
-            <button
-              onClick={() => {
-                setIsSelectMode(!isSelectMode);
-                if (isSelectMode) setSelectedChats(new Set());
-              }}
-              style={{
-                padding: '6px 10px',
-                background: isSelectMode ? 'var(--teal-med)' : 'transparent',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '4px',
-                color: isSelectMode ? 'white' : 'var(--gray-light)',
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontFamily: "'Courier New', Courier, monospace",
-                transition: 'all 0.15s ease',
-              }}
-              title="Toggle select mode"
-            >
-              <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Select
-            </button>
-
-            {isSelectMode && (
-              <>
+          {/* Selected chats indicator and bulk delete */}
+          {selectedChats.size > 0 && (
+            <div style={{
+              margin: '0 16px 8px 16px',
+              padding: '6px 10px',
+              background: 'rgba(114, 212, 204, 0.1)',
+              border: '1px solid rgba(114, 212, 204, 0.3)',
+              borderRadius: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '8px',
+            }}>
+              <span style={{ fontSize: '12px', color: 'var(--teal-bright)' }}>
+                {selectedChats.size} selected
+              </span>
+              <div style={{ display: 'flex', gap: '4px' }}>
                 <button
-                  onClick={handleSelectAll}
+                  onClick={() => setSelectedChats(new Set())}
                   style={{
-                    padding: '6px',
+                    padding: '4px 8px',
                     background: 'transparent',
-                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
                     borderRadius: '4px',
                     color: 'var(--gray-light)',
+                    fontSize: '11px',
                     cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
                   }}
-                  title={selectedChats.size === conversations.length ? 'Deselect all' : 'Select all'}
                 >
-                  <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    {selectedChats.size === conversations.length ? (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    ) : (
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    )}
-                  </svg>
+                  Clear
                 </button>
-
-                {selectedChats.size > 0 && (
-                  <>
-                    <button
-                      onClick={handleBulkAnalysis}
-                      disabled={selectedChats.size !== 1}
-                      style={{
-                        padding: '6px',
-                        background: 'transparent',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        borderRadius: '4px',
-                        color: selectedChats.size === 1 ? 'var(--teal-bright)' : 'var(--gray-light)',
-                        cursor: selectedChats.size === 1 ? 'pointer' : 'not-allowed',
-                        opacity: selectedChats.size === 1 ? 1 : 0.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                      title="Analyze (select 1)"
-                    >
-                      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </button>
-
-                    <button
-                      onClick={handleBulkInfo}
-                      disabled={selectedChats.size !== 1}
-                      style={{
-                        padding: '6px',
-                        background: 'transparent',
-                        border: '1px solid rgba(255, 255, 255, 0.15)',
-                        borderRadius: '4px',
-                        color: selectedChats.size === 1 ? 'var(--teal-bright)' : 'var(--gray-light)',
-                        cursor: selectedChats.size === 1 ? 'pointer' : 'not-allowed',
-                        opacity: selectedChats.size === 1 ? 1 : 0.5,
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                      title="Info (select 1)"
-                    >
-                      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </button>
-
-                    <button
-                      onClick={handleBulkDelete}
-                      style={{
-                        padding: '6px',
-                        background: 'rgba(239, 68, 68, 0.1)',
-                        border: '1px solid rgba(239, 68, 68, 0.3)',
-                        borderRadius: '4px',
-                        color: '#ef4444',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                      }}
-                      title={`Delete ${selectedChats.size} selected`}
-                    >
-                      <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
-                  </>
-                )}
-              </>
-            )}
-
-            {selectedChats.size > 0 && (
-              <span style={{ fontSize: '11px', color: 'var(--gray-light)', marginLeft: '4px' }}>
-                {selectedChats.size}
-              </span>
-            )}
-          </div>
+                <button
+                  onClick={() => setDeleteConfirmId('multiple')}
+                  style={{
+                    padding: '4px 8px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    borderRadius: '4px',
+                    color: '#ef4444',
+                    fontSize: '11px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="chat-history">
             {visibleConversations.map(({ key, convs }) => (
@@ -529,109 +457,78 @@ export default function Sidebar({
                 <div className="history-title">
                   {titles[key as keyof typeof titles]}
                 </div>
-                {convs.map((conv) => (
-                  <div
-                    key={conv.id}
-                    className={`chat-item ${activeConversationId === conv.id ? 'active' : ''}`}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      position: 'relative',
-                      paddingBottom: hoveredChatId === conv.id && activeConversationId === conv.id ? '28px' : '10px',
-                      transition: 'padding-bottom 0.2s ease',
-                    }}
-                    onMouseEnter={() => setHoveredChatId(conv.id)}
-                    onMouseLeave={() => setHoveredChatId(null)}
-                  >
-                    {isSelectMode && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          const newSelected = new Set(selectedChats);
-                          if (newSelected.has(conv.id)) {
-                            newSelected.delete(conv.id);
-                          } else {
-                            newSelected.add(conv.id);
-                          }
-                          setSelectedChats(newSelected);
-                        }}
-                        style={{
-                          padding: '0',
-                          borderRadius: '3px',
-                          border: '1.5px solid var(--gray-light)',
-                          background: selectedChats.has(conv.id) ? 'var(--teal-med)' : 'transparent',
-                          width: '16px',
-                          height: '16px',
-                          minWidth: '16px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                        }}
-                      >
-                        {selectedChats.has(conv.id) && (
-                          <svg width="10" height="10" fill="none" stroke="white" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </button>
-                    )}
-
-                    {editingId === conv.id ? (
-                      <input
-                        type="text"
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onBlur={() => {
-                          if (editingTitle.trim() && onRenameConversation) {
-                            onRenameConversation(conv.id, editingTitle.trim());
-                          }
-                          setEditingId(null);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
+                {convs.map((conv) => {
+                  const isHovered = hoveredChatId === conv.id;
+                  const isSelected = selectedChats.has(conv.id);
+                  return (
+                    <div
+                      key={conv.id}
+                      className={`chat-item ${activeConversationId === conv.id ? 'active' : ''}`}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        position: 'relative',
+                        paddingBottom: (isHovered || isSelected) ? '28px' : '10px',
+                        transition: 'padding-bottom 0.2s ease',
+                      }}
+                      onMouseEnter={() => setHoveredChatId(conv.id)}
+                      onMouseLeave={() => setHoveredChatId(null)}
+                    >
+                      {editingId === conv.id ? (
+                        <input
+                          type="text"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onBlur={() => {
                             if (editingTitle.trim() && onRenameConversation) {
                               onRenameConversation(conv.id, editingTitle.trim());
                             }
                             setEditingId(null);
-                          } else if (e.key === 'Escape') {
-                            setEditingId(null);
-                          }
-                        }}
-                        autoFocus
-                        style={{
-                          flex: 1,
-                          background: 'var(--darker-bg)',
-                          border: '1px solid var(--teal-med)',
-                          borderRadius: '4px',
-                          padding: '4px 8px',
-                          color: 'var(--gray-med)',
-                          fontSize: '13px',
-                        }}
-                      />
-                    ) : (
-                      <div
-                        onClick={() => onSelectConversation(conv.id)}
-                        style={{
-                          flex: 1,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {conv.title}
-                      </div>
-                    )}
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              if (editingTitle.trim() && onRenameConversation) {
+                                onRenameConversation(conv.id, editingTitle.trim());
+                              }
+                              setEditingId(null);
+                            } else if (e.key === 'Escape') {
+                              setEditingId(null);
+                            }
+                          }}
+                          autoFocus
+                          style={{
+                            flex: 1,
+                            background: 'var(--darker-bg)',
+                            border: '1px solid var(--teal-med)',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            color: 'var(--gray-med)',
+                            fontSize: '13px',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          onClick={() => onSelectConversation(conv.id)}
+                          style={{
+                            flex: 1,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {conv.title}
+                        </div>
+                      )}
 
-                    {/* Show action buttons at bottom of selected chat on hover */}
-                    {activeConversationId === conv.id && !isSelectMode && !editingId && (
-                      <ChatItemActions conv={conv} isHovered={hoveredChatId === conv.id} />
-                    )}
-                  </div>
-                ))}
+                      {/* Show action buttons on hover for any conversation */}
+                      {!editingId && (
+                        <ChatItemActions conv={conv} isHovered={isHovered} />
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ))}
 
@@ -844,7 +741,6 @@ export default function Sidebar({
                       if (deleteConfirmId === 'multiple') {
                         selectedChats.forEach(id => onDeleteConversation(id));
                         setSelectedChats(new Set());
-                        setIsSelectMode(false);
                       } else {
                         onDeleteConversation(deleteConfirmId);
                       }
