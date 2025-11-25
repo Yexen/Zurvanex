@@ -112,6 +112,15 @@ export async function sendPuterMessage(
 export const PUTER_MODELS = [
   // TIER S - Best Overall (Direct Puter Access)
   {
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro Preview (Free)',
+    description: '🔥 Latest Gemini - Record 1501 Elo, best multimodal',
+    contextWindow: 2000000,
+    hasThinkingMode: false,
+    supportsVision: true,
+    isFree: true,
+  },
+  {
     id: 'gpt-5.1',
     name: 'GPT-5.1 (Free)',
     description: 'Latest OpenAI update - improved reasoning',
@@ -187,6 +196,15 @@ export const PUTER_MODELS = [
   },
 
   // OpenRouter Models (require openrouter: prefix)
+  {
+    id: 'openrouter:google/gemini-3-pro-image-preview',
+    name: 'Gemini 3 Pro Image (Free)',
+    description: '🔥 Gemini 3 Pro optimized for image understanding',
+    contextWindow: 2000000,
+    hasThinkingMode: false,
+    supportsVision: true,
+    isFree: true,
+  },
   {
     id: 'openrouter:qwen/qwen2.5-vl-72b-instruct',
     name: 'Qwen 2.5-VL-72B (Free)',
