@@ -15,6 +15,7 @@ import { OPENROUTER_MODELS } from '@/lib/openrouter';
 import { OPENAI_MODELS } from '@/lib/openai';
 import { CLAUDE_MODELS } from '@/lib/claude';
 import { COHERE_MODELS } from '@/lib/cohere';
+import { PUTER_MODELS, sendPuterMessage } from '@/lib/puter';
 import type { Conversation, Message, Model } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useConversations } from '@/hooks/useConversations';
@@ -157,8 +158,21 @@ function ChatInterfaceInner() {
         isFree: model.isFree,
       }));
 
-      // Combine all models (OpenRouter first for free models, then Groq, then OpenAI, Claude, Cohere, and Ollama)
-      const allModels = [...openrouterModels, ...groqModels, ...openaiModels, ...claudeModels, ...cohereModels, ...ollamaModels];
+      // Add Puter models (free, user-pays)
+      const puterModels: Model[] = PUTER_MODELS.map((model) => ({
+        id: model.id,
+        name: model.name,
+        type: 'base' as const,
+        description: model.description,
+        provider: 'puter' as const,
+        contextWindow: model.contextWindow,
+        hasThinkingMode: model.hasThinkingMode,
+        supportsVision: model.supportsVision,
+        isFree: model.isFree,
+      }));
+
+      // Combine all models (Puter first for free user-pays, OpenRouter, Groq, then paid models, and Ollama)
+      const allModels = [...puterModels, ...openrouterModels, ...groqModels, ...openaiModels, ...claudeModels, ...cohereModels, ...ollamaModels];
       setModels(allModels);
 
       // Don't auto-select any model - user should choose
@@ -940,6 +954,11 @@ function ChatInterfaceInner() {
       } else if (provider === 'cohere') {
         // Use Cohere API via our route
         response = await sendCohereMessage(allMessages, selectedModel);
+      } else if (provider === 'puter') {
+        // Use Puter AI (free, user-pays)
+        response = await sendPuterMessage(allMessages, selectedModel, (chunk) => {
+          setStreamingContent((prev) => prev + chunk);
+        });
       } else {
         // Use Ollama (default)
         response = await sendMessage(allMessages, selectedModel, (chunk) => {
@@ -1032,6 +1051,8 @@ function ChatInterfaceInner() {
         errorContent += 'Please check your Claude API key configuration.';
       } else if (provider === 'cohere') {
         errorContent += 'Please check your Cohere API key configuration.';
+      } else if (provider === 'puter') {
+        errorContent += 'Please make sure you are signed in to Puter. Users pay for their own API usage.';
       } else {
         errorContent += 'Please check your API configuration.';
       }

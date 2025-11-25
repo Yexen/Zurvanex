@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import Script from 'next/script';
 import PWARegister from '@/components/PWARegister';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import './globals.css';
@@ -41,6 +42,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head suppressHydrationWarning />
       <body className="antialiased" suppressHydrationWarning>
+        {/* Puter.js SDK - Free AI APIs */}
+        <Script
+          src="https://js.puter.com/v2/"
+          strategy="beforeInteractive"
+        />
         <ErrorBoundary>
           <div suppressHydrationWarning>
             <PWARegister />

@@ -29,7 +29,7 @@ export interface Model {
   type: 'base' | 'fine-tuned';
   description?: string;
   supportsVision?: boolean;
-  provider: 'ollama' | 'groq' | 'together' | 'claude' | 'openrouter' | 'openai' | 'cohere';
+  provider: 'ollama' | 'groq' | 'together' | 'claude' | 'openrouter' | 'openai' | 'cohere' | 'puter';
   contextWindow?: number; // Context window size in tokens
   hasThinkingMode?: boolean; // Supports reasoning/thinking mode
   isFree?: boolean; // Whether the model is free to use
