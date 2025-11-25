@@ -1,5 +1,5 @@
 /**
- * Smart Keyword Extraction using xAI Grok
+ * Smart Keyword Extraction using OpenAI GPT-4o-mini
  * Extracts intent-aware search terms from user messages
  */
 
@@ -14,7 +14,7 @@ export interface ExtractedKeywords {
 }
 
 /**
- * Extract smart keywords from user message using xAI Grok
+ * Extract smart keywords from user message using OpenAI GPT-4o-mini
  */
 export async function extractSmartKeywords(
   message: string,
@@ -41,16 +41,14 @@ Examples:
 Return ONLY valid JSON with these exact keys. Use empty arrays if nothing found.`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://zurvanex.app',
-        'X-Title': 'Zurvanex',
       },
       body: JSON.stringify({
-        model: 'x-ai/grok-4.1-fast:free',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'user',
@@ -74,7 +72,7 @@ Return ONLY valid JSON with these exact keys. Use empty arrays if nothing found.
     try {
       const keywords = JSON.parse(content) as ExtractedKeywords;
 
-      console.log('[KeywordExtractor] Grok response:', keywords);
+      console.log('[KeywordExtractor] OpenAI response:', keywords);
 
       // Validate structure and provide defaults
       return {

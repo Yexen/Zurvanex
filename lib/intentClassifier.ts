@@ -1,5 +1,5 @@
 /**
- * Intent Classification using xAI Grok
+ * Intent Classification using OpenAI GPT-4o-mini
  * Classifies user messages to determine optimal retrieval strategy
  */
 
@@ -12,7 +12,7 @@ export type IntentType =
   | 'TASK';        // Wanting help with something specific
 
 /**
- * Classify user message intent using xAI Grok model
+ * Classify user message intent using OpenAI GPT-4o-mini
  */
 export async function classifyIntent(
   message: string,
@@ -37,23 +37,21 @@ Rules:
 Respond with ONLY the category name (one word, uppercase).`;
 
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://zurvanex.app',
-        'X-Title': 'Zurvanex',
       },
       body: JSON.stringify({
-        model: 'x-ai/grok-4.1-fast:free',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'user',
             content: prompt,
           },
         ],
-        temperature: 0.3, // Low temperature for consistent classification
+        temperature: 0.3,
         max_tokens: 10,
       }),
     });
@@ -66,7 +64,7 @@ Respond with ONLY the category name (one word, uppercase).`;
     const data = await response.json();
     const intent = data.choices[0]?.message?.content?.trim().toUpperCase() || 'CONCEPTUAL';
 
-    console.log('[IntentClassifier] Grok response:', intent);
+    console.log('[IntentClassifier] OpenAI response:', intent);
 
     // Validate intent is one of the expected types
     const validIntents: IntentType[] = ['FACTUAL', 'NARRATIVE', 'CONCEPTUAL', 'RELATIONAL', 'EMOTIONAL', 'TASK'];

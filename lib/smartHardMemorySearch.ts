@@ -37,7 +37,6 @@ export async function smartHardMemorySearch(
   userMessage: string,
   userId: string,
   apiKeys: {
-    openrouter?: string;
     openai?: string;
   }
 ): Promise<SmartHardMemoryResult> {
@@ -75,14 +74,12 @@ export async function smartHardMemorySearch(
 
     // STEP 1-3: Classify Intent, Extract Keywords, and Generate Embedding in PARALLEL
     const apiStartTime = performance.now();
-    const [intent, keywords, queryEmbedding] = apiKeys.openrouter
+    const [intent, keywords, queryEmbedding] = apiKeys.openai
       ? await Promise.all([
-          classifyIntent(userMessage, apiKeys.openrouter),
-          extractSmartKeywords(userMessage, 'CONCEPTUAL', apiKeys.openrouter),
-          // Generate embedding for future Tier 3 cache hits (optional)
-          apiKeys.openai
-            ? getEmbedding(userMessage, apiKeys.openai).catch(() => null)
-            : Promise.resolve(null),
+          classifyIntent(userMessage, apiKeys.openai),
+          extractSmartKeywords(userMessage, 'CONCEPTUAL', apiKeys.openai),
+          // Generate embedding for future Tier 3 cache hits
+          getEmbedding(userMessage, apiKeys.openai).catch(() => null),
         ])
       : ['CONCEPTUAL' as const, fallbackKeywordExtraction(userMessage), null] as const;
 
