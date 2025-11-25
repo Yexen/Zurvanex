@@ -623,25 +623,57 @@ export default function MemoryPanel() {
       const zip = new JSZip();
       const zipContent = await zip.loadAsync(zipFile);
 
+      console.log('ZIP loaded, analyzing structure...');
+
       // Parse ZIP structure and create memories
-      // folderPathToId maps folder paths to their memory IDs
+      // folderPathToId maps folder paths to their folder IDs
       const folderPathToId: { [path: string]: string } = {};
       let imported = 0;
       let failed = 0;
 
-      // First pass: Create Folder objects for all directories
       const entries = Object.keys(zipContent.files);
-      const folders = entries.filter(path => zipContent.files[path].dir).sort();
+      console.log('Total entries in ZIP:', entries.length);
+      console.log('Entries:', entries);
 
-      for (const folderPath of folders) {
-        const pathParts = folderPath.replace(/\/$/, '').split('/');
+      // Collect all unique folder paths (both explicit and implicit)
+      const folderPaths = new Set<string>();
+
+      // Add explicit folders from ZIP
+      entries.filter(path => zipContent.files[path].dir).forEach(path => {
+        folderPaths.add(path.replace(/\/$/, '')); // Remove trailing slash
+      });
+
+      // Add implicit folders from file paths
+      entries.filter(path => !zipContent.files[path].dir).forEach(path => {
+        const parts = path.split('/');
+        // Build all parent folder paths
+        for (let i = 1; i < parts.length; i++) {
+          const folderPath = parts.slice(0, i).join('/');
+          if (folderPath) folderPaths.add(folderPath);
+        }
+      });
+
+      // Sort folders by depth (parents before children)
+      const sortedFolders = Array.from(folderPaths).sort((a, b) => {
+        const depthA = a.split('/').length;
+        const depthB = b.split('/').length;
+        return depthA - depthB;
+      });
+
+      console.log('Folders to create:', sortedFolders);
+
+      // First pass: Create Folder objects for all directories
+      for (const folderPath of sortedFolders) {
+        const pathParts = folderPath.split('/');
         const folderName = pathParts[pathParts.length - 1];
 
-        if (!folderName) continue; // Skip root
+        if (!folderName) continue; // Skip empty
 
         // Determine parent folder
         const parentPath = pathParts.slice(0, -1).join('/');
-        const parentId = parentPath ? folderPathToId[parentPath + '/'] : state.selectedFolderId;
+        const parentId = parentPath ? folderPathToId[parentPath] : state.selectedFolderId;
+
+        console.log(`Creating folder: ${folderName} (path: ${folderPath}, parent: ${parentId})`);
 
         try {
           const folderData = {
@@ -657,17 +689,22 @@ export default function MemoryPanel() {
             savedFolder = await memoryStorage.saveFolder(folderData);
           }
 
-          // Store folder ID for children to reference
+          // Store folder ID for children to reference (without trailing slash)
           folderPathToId[folderPath] = savedFolder.id;
+          console.log(`✓ Created folder: ${folderName} with ID: ${savedFolder.id}`);
           imported++;
         } catch (error) {
-          console.error(`Error creating folder ${folderPath}:`, error);
+          console.error(`✗ Error creating folder ${folderPath}:`, error);
           failed++;
         }
       }
 
+      console.log('Folder creation complete. Starting file import...');
+      console.log('Folder path to ID mapping:', folderPathToId);
+
       // Second pass: Create file memories
       const fileEntries = entries.filter(path => !zipContent.files[path].dir);
+      console.log(`Files to import: ${fileEntries.length}`);
 
       for (const filePath of fileEntries) {
         try {
@@ -695,9 +732,11 @@ export default function MemoryPanel() {
             content = `📄 File: ${fileName}\nSize: ${blob.size} bytes\nType: ${blob.type || 'unknown'}\n\nImported from ZIP. Original content not text-based.`;
           }
 
-          // Determine parent folder
+          // Determine parent folder (remove trailing slash if present)
           const parentPath = pathParts.slice(0, -1).join('/');
-          const parentId = parentPath ? folderPathToId[parentPath + '/'] : state.selectedFolderId;
+          const parentId = parentPath ? folderPathToId[parentPath] : state.selectedFolderId;
+
+          console.log(`Importing file: ${fileName} into folder: ${parentPath || 'root'} (ID: ${parentId})`);
 
           const memoryData = {
             title: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
@@ -713,13 +752,15 @@ export default function MemoryPanel() {
             await memoryStorage.saveMemory(memoryData);
           }
 
+          console.log(`✓ Imported file: ${fileName}`);
           imported++;
         } catch (error) {
-          console.error(`Error importing file ${filePath}:`, error);
+          console.error(`✗ Error importing file ${filePath}:`, error);
           failed++;
         }
       }
 
+      console.log(`Import complete! Imported: ${imported}, Failed: ${failed}`);
       alert(`✅ Successfully imported ${imported} items from ZIP!\n${failed > 0 ? `⚠️ ${failed} items failed to import.` : ''}`);
       await loadData();
 
