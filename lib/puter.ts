@@ -52,30 +52,32 @@ export async function sendPuterMessage(
   }
 
   // Convert messages to Puter format
-  const formattedMessages = messages.map((msg) => {
-    // If message has images, format as multimodal
-    if (msg.images && msg.images.length > 0) {
+  // Puter expects array of {role, content} objects where content is a string
+  const formattedMessages = messages
+    .filter(msg => msg.content && msg.content.trim().length > 0) // Only include messages with content
+    .map((msg) => {
       return {
-        role: msg.role,
-        content: [
-          { type: 'text', text: msg.content },
-          ...msg.images.map(img => ({ type: 'image', data: img }))
-        ]
+        role: msg.role, // 'user' or 'assistant'
+        content: msg.content.trim()
       };
-    }
-
-    return {
-      role: msg.role,
-      content: msg.content
-    };
-  });
-
-  // Add system prompt if provided
-  if (systemPrompt) {
-    (formattedMessages as any).unshift({
-      role: 'system',
-      content: systemPrompt
     });
+
+  // Prepend system prompt to first user message instead of using system role
+  // Puter may not support 'system' role
+  if (systemPrompt && formattedMessages.length > 0 && formattedMessages[0].role === 'user') {
+    formattedMessages[0] = {
+      role: 'user',
+      content: `${systemPrompt}\n\n${formattedMessages[0].content}`
+    };
+  }
+
+  console.log('Final formatted messages:', JSON.stringify(formattedMessages, null, 2));
+
+  // Validate all messages have content
+  for (const msg of formattedMessages) {
+    if (!msg.content || typeof msg.content !== 'string') {
+      throw new Error(`Invalid message format: message missing content. Message: ${JSON.stringify(msg)}`);
+    }
   }
 
   try {
