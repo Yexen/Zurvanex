@@ -24,19 +24,29 @@ export async function sendClaudeMessage(
     if (msg.images && msg.images.length > 0) {
       const content: Array<
         | { type: 'text'; text: string }
-        | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+        | { type: 'image'; source: { type: 'base64'; media_type: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'; data: string } }
       > = [{ type: 'text', text: msg.content }];
 
       // Add all images
       for (const imageData of msg.images) {
         // Extract base64 data and media type
         let base64Data = imageData;
-        let mediaType = 'image/png';
+        let mediaType: 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp' = 'image/png';
 
         if (imageData.startsWith('data:')) {
           const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
           if (match) {
-            mediaType = match[1];
+            const detectedType = match[1];
+            // Map detected type to Claude's accepted types
+            if (detectedType === 'image/jpeg' || detectedType === 'image/jpg') {
+              mediaType = 'image/jpeg';
+            } else if (detectedType === 'image/png') {
+              mediaType = 'image/png';
+            } else if (detectedType === 'image/gif') {
+              mediaType = 'image/gif';
+            } else if (detectedType === 'image/webp') {
+              mediaType = 'image/webp';
+            }
             base64Data = match[2];
           }
         }
