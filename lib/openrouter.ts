@@ -46,8 +46,8 @@ export async function sendOpenRouterMessage(
 
   // Add system prompt if provided
   if (systemPrompt) {
-    formattedMessages.unshift({
-      role: 'system' as const,
+    (formattedMessages as any).unshift({
+      role: 'system',
       content: systemPrompt,
     });
   }

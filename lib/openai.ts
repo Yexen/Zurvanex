@@ -47,8 +47,8 @@ export async function sendOpenAIMessage(
 
   // Add system prompt as first message if provided
   if (systemPrompt) {
-    formattedMessages.unshift({
-      role: 'system' as const,
+    (formattedMessages as any).unshift({
+      role: 'system',
       content: systemPrompt,
     });
   }
