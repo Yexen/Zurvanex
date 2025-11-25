@@ -4,7 +4,7 @@ const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 export interface OpenRouterMessage {
   role: 'system' | 'user' | 'assistant';
-  content: string;
+  content: string | Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }>;
 }
 
 /**
@@ -23,10 +23,35 @@ export async function sendOpenRouterMessage(
   systemPrompt?: string
 ): Promise<string> {
   // Convert our messages to OpenRouter format
-  const formattedMessages: OpenRouterMessage[] = messages.map((msg) => ({
-    role: msg.role,
-    content: msg.content,
-  }));
+  const formattedMessages: OpenRouterMessage[] = messages.map((msg) => {
+    // If message has images, use multimodal content format
+    if (msg.images && msg.images.length > 0) {
+      const content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
+        { type: 'text', text: msg.content },
+      ];
+
+      // Add all images
+      for (const imageData of msg.images) {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: imageData.startsWith('data:') ? imageData : `data:image/png;base64,${imageData}`,
+          },
+        });
+      }
+
+      return {
+        role: msg.role,
+        content,
+      };
+    }
+
+    // Regular text message
+    return {
+      role: msg.role,
+      content: msg.content,
+    };
+  });
 
   // Add system prompt if provided
   if (systemPrompt) {

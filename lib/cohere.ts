@@ -25,7 +25,14 @@ export async function sendCohereMessage(
   }));
 
   const lastMessage = messages[messages.length - 1];
-  const userMessage = lastMessage.role === 'user' ? lastMessage.content : '';
+  let userMessage = lastMessage.role === 'user' ? lastMessage.content : '';
+
+  // Note: Cohere's vision API may require special handling for images
+  // For now, if images are present, append a note to the message
+  // This ensures the system still works even if vision isn't fully supported
+  if (lastMessage.images && lastMessage.images.length > 0) {
+    userMessage += `\n\n[Note: ${lastMessage.images.length} image(s) attached but may not be processed by this model]`;
+  }
 
   try {
     if (onChunk) {

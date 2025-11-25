@@ -249,26 +249,17 @@ export default function ChatInput({ onSend, disabled, supportsVision }: ChatInpu
 
             console.log(`PDF detected: ${file.name} (${pageCount} pages)`);
 
-            // Smart decision: Images for visual analysis (≤30 pages), Text for long docs (>30 pages)
-            if (pageCount <= 30) {
-              // Convert to images for vision model analysis
-              console.log(`Converting PDF to images (${pageCount} pages)...`);
-              const images = await convertPdfToImages(file);
-              newFiles.push(...images);
-              console.log(`✓ PDF converted to ${images.length} images for vision analysis`);
-            } else {
-              // Extract text for long document analysis
-              console.log(`Extracting text from large PDF (${pageCount} pages)...`);
-              const extractedText = await extractPdfText(file);
-              newFiles.push({
-                type: 'document',
-                data: '',
-                name: file.name,
-                mimeType: file.type,
-                extractedText,
-              });
-              console.log(`✓ PDF text extracted: ${extractedText.length} characters`);
-            }
+            // Always extract text from PDFs for document analysis
+            console.log(`Extracting text from PDF (${pageCount} pages)...`);
+            const extractedText = await extractPdfText(file);
+            newFiles.push({
+              type: 'document',
+              data: '',
+              name: file.name,
+              mimeType: file.type,
+              extractedText,
+            });
+            console.log(`✓ PDF text extracted: ${extractedText.length} characters`);
           } catch (error) {
             console.error('PDF processing error:', error);
             setFileError(`Failed to process PDF: ${file.name}. ${error instanceof Error ? error.message : 'Unknown error'}`);

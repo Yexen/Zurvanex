@@ -19,10 +19,50 @@ export async function sendClaudeMessage(
   const anthropic = createAnthropicClient(apiKey);
 
   // Convert our messages to Claude format
-  const formattedMessages = messages.map((msg) => ({
-    role: (msg.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
-    content: msg.content,
-  }));
+  const formattedMessages = messages.map((msg) => {
+    // If message has images, use multimodal content format
+    if (msg.images && msg.images.length > 0) {
+      const content: Array<
+        | { type: 'text'; text: string }
+        | { type: 'image'; source: { type: 'base64'; media_type: string; data: string } }
+      > = [{ type: 'text', text: msg.content }];
+
+      // Add all images
+      for (const imageData of msg.images) {
+        // Extract base64 data and media type
+        let base64Data = imageData;
+        let mediaType = 'image/png';
+
+        if (imageData.startsWith('data:')) {
+          const match = imageData.match(/^data:([^;]+);base64,(.+)$/);
+          if (match) {
+            mediaType = match[1];
+            base64Data = match[2];
+          }
+        }
+
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mediaType,
+            data: base64Data,
+          },
+        });
+      }
+
+      return {
+        role: (msg.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
+        content,
+      };
+    }
+
+    // Regular text message
+    return {
+      role: (msg.role === 'assistant' ? 'assistant' : 'user') as 'user' | 'assistant',
+      content: msg.content,
+    };
+  });
 
   try {
     if (onChunk) {
