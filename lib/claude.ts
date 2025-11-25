@@ -125,6 +125,33 @@ export async function sendClaudeMessage(
  */
 export const CLAUDE_MODELS = [
   {
+    id: 'claude-sonnet-4-5',
+    name: 'Claude Sonnet 4.5',
+    description: 'Current best - latest flagship model',
+    contextWindow: 200000,
+    hasThinkingMode: true,
+    supportsVision: true,
+    isFree: false,
+  },
+  {
+    id: 'claude-opus-4-1',
+    name: 'Claude Opus 4.1',
+    description: 'Most capable - for the hardest tasks',
+    contextWindow: 200000,
+    hasThinkingMode: true,
+    supportsVision: true,
+    isFree: false,
+  },
+  {
+    id: 'claude-haiku-4-5',
+    name: 'Claude Haiku 4.5',
+    description: 'Fastest - quick and efficient responses',
+    contextWindow: 200000,
+    hasThinkingMode: false,
+    supportsVision: true,
+    isFree: false,
+  },
+  {
     id: 'claude-sonnet-4-20250514',
     name: 'Claude 4 Sonnet',
     description: 'Most intelligent model, balanced performance',
