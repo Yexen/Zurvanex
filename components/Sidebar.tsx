@@ -464,6 +464,11 @@ export default function Sidebar({
                     <div
                       key={conv.id}
                       className={`chat-item ${activeConversationId === conv.id ? 'active' : ''}`}
+                      onClick={() => {
+                        if (editingId !== conv.id) {
+                          onSelectConversation(conv.id);
+                        }
+                      }}
                       style={{
                         display: 'flex',
                         alignItems: 'center',
@@ -471,6 +476,7 @@ export default function Sidebar({
                         position: 'relative',
                         paddingBottom: (isHovered || isSelected) ? '28px' : '10px',
                         transition: 'padding-bottom 0.2s ease',
+                        cursor: 'pointer',
                       }}
                       onMouseEnter={() => setHoveredChatId(conv.id)}
                       onMouseLeave={() => setHoveredChatId(null)}
@@ -480,6 +486,7 @@ export default function Sidebar({
                           type="text"
                           value={editingTitle}
                           onChange={(e) => setEditingTitle(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
                           onBlur={() => {
                             if (editingTitle.trim() && onRenameConversation) {
                               onRenameConversation(conv.id, editingTitle.trim());
@@ -509,13 +516,11 @@ export default function Sidebar({
                         />
                       ) : (
                         <div
-                          onClick={() => onSelectConversation(conv.id)}
                           style={{
                             flex: 1,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            cursor: 'pointer'
                           }}
                         >
                           {conv.title}
@@ -523,7 +528,7 @@ export default function Sidebar({
                       )}
 
                       {/* Show action buttons on hover for any conversation */}
-                      {!editingId && (
+                      {editingId !== conv.id && (
                         <ChatItemActions conv={conv} isHovered={isHovered} />
                       )}
                     </div>
