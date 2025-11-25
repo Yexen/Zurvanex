@@ -18,6 +18,7 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
   const optionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Group models by provider
+  const puterModels = models.filter(m => m.provider === 'puter');
   const openrouterModels = models.filter(m => m.provider === 'openrouter');
   const groqModels = models.filter(m => m.provider === 'groq');
   const openaiModels = models.filter(m => m.provider === 'openai');
@@ -101,6 +102,14 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
       <circle cx="12" cy="12" r="3" fill="currentColor" />
       <circle cx="12" cy="12" r="7" />
       <circle cx="12" cy="12" r="10" opacity="0.5" />
+    </svg>
+  );
+
+  const PuterIcon = () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ display: 'inline', marginRight: '6px', verticalAlign: 'middle' }}>
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
     </svg>
   );
 
@@ -252,6 +261,60 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
           }}
           className="custom-scrollbar"
         >
+          {/* Puter Free Models Section - User-pays, no API key required */}
+          {puterModels.length > 0 && (
+            <div
+              onMouseEnter={() => setExpandedSection('puter')}
+              onMouseLeave={() => setExpandedSection(null)}
+            >
+              <div
+                style={{
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  background: 'rgba(64, 224, 208, 0.1)',
+                  color: '#40E0D0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  cursor: 'pointer',
+                }}
+              >
+                <PuterIcon /> 🔥 Free Models (Puter - No API Key)
+              </div>
+              {expandedSection === 'puter' && puterModels.map((model) => (
+                <div
+                  key={model.id}
+                  ref={(el) => {
+                    if (el) optionRefs.current.set(model.id, el);
+                  }}
+                  onMouseEnter={(e) => handleMouseEnter(model, e.currentTarget)}
+                  onMouseLeave={() => setHoveredModel(null)}
+                  onClick={() => {
+                    onSelectModel(model.id);
+                    setIsOpen(false);
+                    setHoveredModel(null); // Clear tooltip when model is selected
+                  }}
+                  style={{
+                    padding: '8px 12px',
+                    cursor: 'pointer',
+                    background: model.id === selectedModel ? '#40E0D0' : 'transparent',
+                    color: model.id === selectedModel ? '#000' : 'inherit',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  className="hover:bg-[var(--hover-bg)]"
+                >
+                  <span>
+                    {model.name}
+                    {model.contextWindow && ` [${formatContextWindow(model.contextWindow)}]`}
+                  </span>
+                  {model.hasThinkingMode && <BrainIcon />}
+                  {model.supportsVision && <EyeIcon />}
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* Free Models Section */}
           {openrouterModels.length > 0 && (
             <div
