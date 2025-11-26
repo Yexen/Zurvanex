@@ -16,7 +16,7 @@ import { OPENROUTER_MODELS } from '@/lib/openrouter';
 import { OPENAI_MODELS } from '@/lib/openai';
 import { CLAUDE_MODELS } from '@/lib/claude';
 import { COHERE_MODELS } from '@/lib/cohere';
-import { PUTER_MODELS, PUTER_IMAGE_MODELS, sendPuterMessage, generatePuterImage, detectImageGenerationRequest } from '@/lib/puter';
+import { PUTER_MODELS, PUTER_IMAGE_MODELS, sendPuterMessage, generatePuterImage, detectImageGenerationRequest, enhanceImagePromptWithContext } from '@/lib/puter';
 import type { Conversation, Message, Model } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
 import { compressImages, needsCompression, formatSize } from '@/utils/imageCompression';
@@ -1005,16 +1005,28 @@ function ChatInterfaceInner() {
     setConversationLoading(conversationId, true);
 
     try {
-      console.log('[ImageGen] Generating image with prompt:', prompt);
+      console.log('[ImageGen] Original prompt:', prompt);
       console.log('[ImageGen] Model:', modelToUse);
       console.log('[ImageGen] Quality:', qualityToUse);
+
+      // Get current conversation messages for context
+      const currentConversation = conversations.find(c => c.id === conversationId);
+      const conversationMessages = currentConversation?.messages || [];
+
+      // Enhance the prompt with conversation context (if there's context)
+      let enhancedPrompt = prompt;
+      if (conversationMessages.length >= 2) {
+        console.log('[ImageGen] Enhancing prompt with conversation context...');
+        enhancedPrompt = await enhanceImagePromptWithContext(prompt, conversationMessages);
+        console.log('[ImageGen] Enhanced prompt:', enhancedPrompt);
+      }
 
       // Use first input image if provided (for img2img)
       const inputImage = inputImages && inputImages.length > 0 ? inputImages[0] : undefined;
 
-      // Generate the image
+      // Generate the image with enhanced prompt
       const generatedImageUrl = await generatePuterImage(
-        prompt,
+        enhancedPrompt,
         modelToUse,
         qualityToUse,
         inputImage
@@ -1022,10 +1034,13 @@ function ChatInterfaceInner() {
 
       // Create AI response with the generated image
       const modelName = PUTER_IMAGE_MODELS.find(m => m.id === modelToUse)?.name || modelToUse;
+      const wasEnhanced = enhancedPrompt !== prompt;
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Here's your generated image:\n\n*Prompt: "${prompt}"*\n*Model: ${modelName}*`,
+        content: wasEnhanced
+          ? `Here's your generated image:\n\n*Original prompt: "${prompt}"*\n*Enhanced with context: "${enhancedPrompt.substring(0, 150)}${enhancedPrompt.length > 150 ? '...' : ''}"*\n*Model: ${modelName}*`
+          : `Here's your generated image:\n\n*Prompt: "${prompt}"*\n*Model: ${modelName}*`,
         timestamp: new Date(),
         modelId: modelToUse,
         modelName: modelName,
