@@ -953,8 +953,18 @@ function ChatInterfaceInner() {
   };
 
   // Handle image generation requests
-  const handleImageGeneration = async (originalContent: string, prompt: string, inputImages?: string[]) => {
+  const handleImageGeneration = async (
+    originalContent: string,
+    prompt: string,
+    inputImages?: string[],
+    commandModel?: string,
+    commandQuality?: 'high' | 'medium' | 'low' | 'hd' | 'standard'
+  ) => {
     let conversationId = activeConversationId;
+
+    // Use model from command if provided, otherwise use selected image model
+    const modelToUse = commandModel || selectedImageModel;
+    const qualityToUse = commandQuality || imageGenQuality;
 
     // Create a new conversation if needed
     if (!conversationId) {
@@ -993,8 +1003,8 @@ function ChatInterfaceInner() {
 
     try {
       console.log('[ImageGen] Generating image with prompt:', prompt);
-      console.log('[ImageGen] Model:', selectedImageModel);
-      console.log('[ImageGen] Quality:', imageGenQuality);
+      console.log('[ImageGen] Model:', modelToUse);
+      console.log('[ImageGen] Quality:', qualityToUse);
 
       // Use first input image if provided (for img2img)
       const inputImage = inputImages && inputImages.length > 0 ? inputImages[0] : undefined;
@@ -1002,19 +1012,20 @@ function ChatInterfaceInner() {
       // Generate the image
       const generatedImageUrl = await generatePuterImage(
         prompt,
-        selectedImageModel,
-        imageGenQuality,
+        modelToUse,
+        qualityToUse,
         inputImage
       );
 
       // Create AI response with the generated image
+      const modelName = PUTER_IMAGE_MODELS.find(m => m.id === modelToUse)?.name || modelToUse;
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Here's your generated image:\n\n*Prompt: "${prompt}"*\n*Model: ${selectedImageModel}*`,
+        content: `Here's your generated image:\n\n*Prompt: "${prompt}"*\n*Model: ${modelName}*`,
         timestamp: new Date(),
-        modelId: selectedImageModel,
-        modelName: PUTER_IMAGE_MODELS.find(m => m.id === selectedImageModel)?.name || selectedImageModel,
+        modelId: modelToUse,
+        modelName: modelName,
         images: [generatedImageUrl],
       };
 
@@ -1025,13 +1036,13 @@ function ChatInterfaceInner() {
     } catch (error) {
       console.error('[ImageGen] Error:', error);
 
-      // Add error message
+      // Add error message with help text
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `Sorry, I couldn't generate the image. ${error instanceof Error ? error.message : 'Unknown error occurred.'}\n\nTry:\n- Using a different image model\n- Simplifying your prompt\n- Making sure you're signed in to Puter`,
+        content: `Sorry, I couldn't generate the image. ${error instanceof Error ? error.message : 'Unknown error occurred.'}\n\n**Tips:**\n- Make sure you're signed in to Puter\n- Try a different model: \`/image --model=dall-e-3 ${prompt}\`\n- Simplify your prompt\n\n**Available models:** gpt-image-1, gpt-image-1-mini, dall-e-3, dall-e-2, flux-schnell, stable-diffusion-3`,
         timestamp: new Date(),
-        modelId: selectedImageModel,
+        modelId: modelToUse,
         modelName: 'Image Generation',
       };
 
@@ -1043,12 +1054,18 @@ function ChatInterfaceInner() {
   };
 
   const handleSendMessage = async (content: string, images?: string[]) => {
-    // Check if this is an image generation request
+    // Check if this is an image generation request (slash commands like /image, /imagine, /gen, /draw)
     const imageGenRequest = detectImageGenerationRequest(content);
 
     if (imageGenRequest.isImageGen) {
-      // Handle image generation
-      await handleImageGeneration(content, imageGenRequest.prompt, images);
+      // Handle image generation with optional model/quality from command
+      await handleImageGeneration(
+        content,
+        imageGenRequest.prompt,
+        images,
+        imageGenRequest.model,
+        imageGenRequest.quality
+      );
       return;
     }
 

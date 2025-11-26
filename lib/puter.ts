@@ -308,39 +308,60 @@ export async function generatePuterImage(
 /**
  * Check if a prompt is requesting image generation
  * Returns the extracted prompt if it's an image generation request
+ *
+ * Slash commands that trigger image generation:
+ * - /image <prompt> - Generate an image
+ * - /imagine <prompt> - Generate an image (alias)
+ * - /gen <prompt> - Generate an image (alias)
+ * - /draw <prompt> - Generate an image (alias)
+ * - /paint <prompt> - Generate an image (alias)
+ *
+ * Optional model selection:
+ * - /image --model=dall-e-3 <prompt>
+ * - /image --quality=hd <prompt>
  */
-export function detectImageGenerationRequest(message: string): { isImageGen: boolean; prompt: string } {
-  const lowerMessage = message.toLowerCase();
+export function detectImageGenerationRequest(message: string): {
+  isImageGen: boolean;
+  prompt: string;
+  model?: string;
+  quality?: 'high' | 'medium' | 'low' | 'hd' | 'standard';
+} {
+  const trimmedMessage = message.trim();
 
-  // Common image generation trigger phrases
-  const triggers = [
-    /^(generate|create|make|draw|paint|design|render|produce)\s+(an?\s+)?(image|picture|photo|artwork|illustration|drawing|painting)\s+(of|showing|depicting|with)\s+/i,
-    /^(generate|create|make|draw|paint|design|render)\s+/i,
-    /^image:\s*/i,
+  // Slash command triggers (these ALWAYS trigger image gen)
+  const slashCommands = [
+    /^\/image\s+/i,
     /^\/imagine\s+/i,
     /^\/gen\s+/i,
-    /^\/image\s+/i,
+    /^\/draw\s+/i,
+    /^\/paint\s+/i,
+    /^\/create\s+/i,
   ];
 
-  for (const trigger of triggers) {
-    const match = message.match(trigger);
-    if (match) {
-      const prompt = message.slice(match[0].length).trim();
-      if (prompt.length > 0) {
-        return { isImageGen: true, prompt };
-      }
-    }
-  }
+  for (const trigger of slashCommands) {
+    if (trigger.test(trimmedMessage)) {
+      let remainder = trimmedMessage.replace(trigger, '').trim();
+      let model: string | undefined;
+      let quality: 'high' | 'medium' | 'low' | 'hd' | 'standard' | undefined;
 
-  // Also detect explicit requests like "can you generate an image of..."
-  if (
-    (lowerMessage.includes('generate') || lowerMessage.includes('create') || lowerMessage.includes('make')) &&
-    (lowerMessage.includes('image') || lowerMessage.includes('picture') || lowerMessage.includes('photo'))
-  ) {
-    // Extract the description part after "of" or "showing"
-    const descMatch = message.match(/(?:image|picture|photo|artwork)\s+(?:of|showing|depicting|with)\s+(.+)/i);
-    if (descMatch) {
-      return { isImageGen: true, prompt: descMatch[1].trim() };
+      // Parse optional flags
+      // --model=modelname or -m modelname
+      const modelMatch = remainder.match(/(?:--model=|--m=|-m\s+)(\S+)/i);
+      if (modelMatch) {
+        model = modelMatch[1];
+        remainder = remainder.replace(modelMatch[0], '').trim();
+      }
+
+      // --quality=value or -q value
+      const qualityMatch = remainder.match(/(?:--quality=|--q=|-q\s+)(high|medium|low|hd|standard)/i);
+      if (qualityMatch) {
+        quality = qualityMatch[1].toLowerCase() as typeof quality;
+        remainder = remainder.replace(qualityMatch[0], '').trim();
+      }
+
+      if (remainder.length > 0) {
+        return { isImageGen: true, prompt: remainder, model, quality };
+      }
     }
   }
 
