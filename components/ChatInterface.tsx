@@ -850,6 +850,80 @@ function ChatInterfaceInner() {
     return fullResponse;
   };
 
+  // Helper function to send message to Puter AI with memory and personalization
+  const sendPuterMessageWithMemory = async (messages: Message[], modelId: string): Promise<string> => {
+    // Generate system prompt from user preferences
+    let systemPrompt = shouldIncludePersonalization(preferences)
+      ? generateSystemPrompt(preferences)
+      : "You are Zurvânex, a helpful AI assistant.";
+
+    // Add conversation memory context if user is available
+    if (user?.id && messages.length > 0) {
+      const currentQuery = messages[messages.length - 1]?.content || '';
+      try {
+        // Add smart hard memory search (intelligent retrieval from Supabase)
+        try {
+          const smartMemoryResult = await smartHardMemorySearch(
+            currentQuery,
+            user.id,
+            {
+              openai: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+            }
+          );
+
+          if (smartMemoryResult.memories.length > 0) {
+            console.log('[SmartHardMemory] Found memories for Puter:', {
+              intent: smartMemoryResult.intent,
+              count: smartMemoryResult.memories.length,
+              totalMatches: smartMemoryResult.totalMatches,
+            });
+
+            // Format memories for prompt
+            const memoryPrompt = formatHardMemoryForPrompt({
+              foundMemories: smartMemoryResult.memories,
+              relevantCount: smartMemoryResult.totalMatches,
+              searchQuery: currentQuery,
+              tags: [],
+            });
+
+            if (memoryPrompt) {
+              systemPrompt += memoryPrompt;
+            }
+          }
+        } catch (smartMemoryError) {
+          console.error('[SmartHardMemory] Error (non-critical, using fallback):', smartMemoryError);
+
+          // Fallback to original hard memory search
+          const hardMemoryContext = await getHardMemoryContext(user.id, currentQuery);
+          const hardMemoryPrompt = formatHardMemoryForPrompt(hardMemoryContext);
+          if (hardMemoryPrompt) {
+            systemPrompt += hardMemoryPrompt;
+          }
+        }
+
+        // Add conversational memory
+        const memoryContext = await getConversationMemory(user.id, currentQuery);
+        const memoryPrompt = formatMemoryForPrompt(memoryContext, preferences);
+        if (memoryPrompt) {
+          systemPrompt += memoryPrompt;
+        }
+      } catch (error) {
+        console.error('🚨 Error fetching memory context for Puter:', error);
+      }
+    }
+
+    console.log('Sending to Puter with personalization:', {
+      hasPreferences: !!preferences,
+      systemPromptLength: systemPrompt?.length || 0,
+      userContext: formatUserContext(preferences)
+    });
+
+    // Use the sendPuterMessage function with systemPrompt
+    return await sendPuterMessage(messages, modelId, (chunk) => {
+      setStreamingContent((prev) => prev + chunk);
+    }, systemPrompt);
+  };
+
   const handleSendMessage = async (content: string, images?: string[]) => {
     // Prevent multiple simultaneous calls
     if (isLoading) {
@@ -980,10 +1054,8 @@ function ChatInterfaceInner() {
         // Use Cohere API via our route
         response = await sendCohereMessage(allMessages, selectedModel);
       } else if (provider === 'puter') {
-        // Use Puter AI (free, user-pays)
-        response = await sendPuterMessage(allMessages, selectedModel, (chunk) => {
-          setStreamingContent((prev) => prev + chunk);
-        });
+        // Use Puter AI (free, user-pays) with memory and personalization
+        response = await sendPuterMessageWithMemory(allMessages, selectedModel);
       } else {
         // Use Ollama (default)
         response = await sendMessage(allMessages, selectedModel, (chunk) => {
