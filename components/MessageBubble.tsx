@@ -118,26 +118,35 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
         let isImage = false;
         let extension = 'file';
 
+        // Debug: log the data prefix
+        console.log(`[MessageBubble] Image ${idx + 1} data prefix:`, data?.substring(0, 50));
+        console.log(`[MessageBubble] Image ${idx + 1} length:`, data?.length);
+
         // Check if it's a data URL
-        if (data.startsWith('data:')) {
+        if (data && data.startsWith('data:')) {
           mimeType = data.split(';')[0].split(':')[1] || '';
           isImage = mimeType.startsWith('image/');
-          extension = mimeType.split('/')[1] || 'file';
+          extension = mimeType.split('/')[1] || 'png';
+          console.log(`[MessageBubble] Detected data URL - mimeType: ${mimeType}, isImage: ${isImage}`);
         }
         // Check if it's an HTTP URL (likely an image from generation)
-        else if (data.startsWith('http://') || data.startsWith('https://')) {
+        else if (data && (data.startsWith('http://') || data.startsWith('https://'))) {
           // Assume HTTP URLs are images (from image generation)
           isImage = true;
           // Try to get extension from URL
           const urlMatch = data.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
           extension = urlMatch ? urlMatch[1] : 'png';
           mimeType = `image/${extension}`;
+          console.log(`[MessageBubble] Detected HTTP URL - extension: ${extension}`);
         }
-        // Check for common image extensions in the data
-        else if (data.includes('image/') || /\.(png|jpg|jpeg|gif|webp|svg)/i.test(data)) {
+        // Check for common image patterns in the data
+        else if (data && (data.includes('image/') || /\.(png|jpg|jpeg|gif|webp|svg)/i.test(data))) {
           isImage = true;
           extension = 'png';
           mimeType = 'image/png';
+          console.log(`[MessageBubble] Detected image pattern in data`);
+        } else {
+          console.log(`[MessageBubble] Unknown data format, treating as document`);
         }
 
         const name = isImage ? `Image ${idx + 1}.${extension}` : `File ${idx + 1}.${extension}`;
