@@ -887,8 +887,8 @@ export async function sendPuterMessage(
       throw new Error('Rate limit reached. Please wait a moment and try again.');
     } else if (lowerError.includes('model not found') || lowerError.includes('invalid model')) {
       throw new Error(`Model "${modelId}" is not available. Try selecting a different model.`);
-    } else if (lowerError.includes('insufficient') || lowerError.includes('credits') || lowerError.includes('balance') || lowerError.includes('users pay')) {
-      throw new Error('Your Puter credits are depleted. Visit puter.com to add credits, or use models with your own API keys (OpenRouter, Groq, etc.)');
+    } else if (lowerError.includes('insufficient') || lowerError.includes('credits') || lowerError.includes('balance') || lowerError.includes('users pay') || lowerError.includes('subscription')) {
+      throw new Error('Puter AI access limit reached. Upgrade your Puter subscription at puter.com (yellow diamond button), or use models with your own API keys.');
     }
 
     throw new Error(`Puter API error: ${errorMessage}`);
