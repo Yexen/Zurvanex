@@ -145,6 +145,40 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
           const mimeMatch = data.match(/^data:([^;,]+)/);
           if (mimeMatch) {
             mimeType = mimeMatch[1];
+
+            // Check for incorrect MIME type - Puter sometimes returns images as text/xml
+            // Detect actual format by checking base64 signature
+            const base64Match = data.match(/base64,([A-Za-z0-9+/]{20})/);
+            if (base64Match) {
+              const base64Start = base64Match[1];
+              let correctedMimeType: string | null = null;
+
+              // PNG signature: iVBORw0KGgo (base64 of 0x89 PNG header)
+              if (base64Start.startsWith('iVBORw0KGgo')) {
+                correctedMimeType = 'image/png';
+              }
+              // JPEG signature: /9j/ (base64 of 0xFF 0xD8 0xFF)
+              else if (base64Start.startsWith('/9j/')) {
+                correctedMimeType = 'image/jpeg';
+              }
+              // GIF signature: R0lGOD (base64 of GIF87a or GIF89a)
+              else if (base64Start.startsWith('R0lGOD')) {
+                correctedMimeType = 'image/gif';
+              }
+              // WebP signature: UklGR (base64 of RIFF...WEBP)
+              else if (base64Start.startsWith('UklGR')) {
+                correctedMimeType = 'image/webp';
+              }
+
+              // If we detected a different MIME type, correct the data URL
+              if (correctedMimeType && correctedMimeType !== mimeType) {
+                console.log(`[MessageBubble] Correcting MIME type from ${mimeType} to ${correctedMimeType}`);
+                // Replace the incorrect MIME type in the data URL
+                data = data.replace(/^data:[^;,]+/, `data:${correctedMimeType}`);
+                mimeType = correctedMimeType;
+              }
+            }
+
             isImage = mimeType.startsWith('image/');
             // Extract extension from mime type
             const extMatch = mimeType.match(/\/([a-zA-Z0-9]+)/);
