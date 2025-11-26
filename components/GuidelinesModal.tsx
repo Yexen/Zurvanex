@@ -254,17 +254,52 @@ function CommandsTab() {
         </div>
       </CommandSection>
 
+      {/* Personalization Commands */}
+      <CommandSection
+        title="Personalization"
+        icon={
+          <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        }
+        description="Set your preferences and communication style."
+      >
+        <CommandItem
+          command="/personalization <options>"
+          description="Update your personalization settings (style, interests, background)"
+          example="/personalization friendly, coding enthusiast, prefer detailed explanations"
+        />
+        <div style={{ marginTop: '12px', padding: '12px', background: 'rgba(114, 212, 204, 0.1)', borderRadius: '8px' }}>
+          <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', color: 'var(--teal-bright)' }}>Options</h4>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--gray-light)' }}>
+            <p style={{ margin: 0 }}><strong>Styles:</strong> professional, casual, friendly, balanced</p>
+            <p style={{ margin: 0 }}><strong>Interests:</strong> coding, AI, design, etc.</p>
+            <p style={{ margin: 0 }}><strong>Background:</strong> Any other info about yourself</p>
+          </div>
+        </div>
+      </CommandSection>
+
       {/* Memory Commands */}
       <CommandSection
-        title="Memory & Context"
+        title="Memory Commands"
         icon={
           <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
           </svg>
         }
-        description="Zurvânex has a three-branch memory system that remembers your conversations."
+        description="Save and recall important information from your hard memory."
       >
-        <div style={{ fontSize: '13px', color: 'var(--gray-light)', lineHeight: 1.6 }}>
+        <CommandItem
+          command="/remember <title> | <content> | <tags>"
+          description="Save a new memory with title, content, and optional tags"
+          example="/remember Project Deadline | The project is due on March 15th | #work #deadline"
+        />
+        <CommandItem
+          command="/recall <search terms>"
+          description="Search and retrieve memories by keywords"
+          example="/recall project deadline"
+        />
+        <div style={{ marginTop: '12px', fontSize: '13px', color: 'var(--gray-light)', lineHeight: 1.6 }}>
           <p><strong style={{ color: 'var(--teal-bright)' }}>Personalization:</strong> Your preferences, name, interests, and communication style are automatically remembered.</p>
           <p><strong style={{ color: 'var(--teal-bright)' }}>Soft Memory:</strong> Recent conversations are used to provide context.</p>
           <p><strong style={{ color: 'var(--teal-bright)' }}>Hard Memory:</strong> Important facts you save are retrieved when relevant.</p>

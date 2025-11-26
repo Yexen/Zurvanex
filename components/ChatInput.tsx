@@ -58,7 +58,7 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
 
   // Parse personalization command
   const parsePersonalizationCommand = async (message: string): Promise<boolean> => {
-    const personalizationMatch = message.match(/^\.\/personalization\s+(.+)$/i);
+    const personalizationMatch = message.match(/^\/personalization\s+(.+)$/i);
     if (!personalizationMatch) return false;
 
     const input = personalizationMatch[1].trim();
@@ -884,9 +884,9 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
             onChange={(e) => handleMessageChange(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            placeholder={message.startsWith('./') ?
-              "Type: ./personalization friendly, coding enthusiast, prefer detailed explanations" :
-              "Message Zurvânex... (try: ./personalization)"
+            placeholder={message.startsWith('/') ?
+              "Type: /personalization friendly, coding enthusiast, prefer detailed explanations" :
+              "Message Zurvânex... (try: /personalization)"
             }
             disabled={disabled}
             rows={1}

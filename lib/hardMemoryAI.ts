@@ -425,7 +425,7 @@ export function formatHardMemoryForPrompt(context: HardMemoryContext): string {
       // If this is critical memory (first result), include notification
       if (i === 0) {
         parts.push(`\n⚠️ **Memory "${memory.title}" too large for context** (${memory.content.length} chars)`);
-        parts.push(`*Use "./recall ${memory.title}" for full content*`);
+        parts.push(`*Use "/recall ${memory.title}" for full content*`);
       }
       
       break; // Stop including memories once budget is exceeded
@@ -476,8 +476,8 @@ export async function saveMemoryFromAI(
 
 /**
  * Parses slash commands for memory operations
- * ./remember Title | Content | #tag1 #tag2
- * ./recall search terms
+ * /remember Title | Content | #tag1 #tag2
+ * /recall search terms
  */
 export function parseMemoryCommand(input: string): {
   type: 'remember' | 'recall' | null;
@@ -485,25 +485,25 @@ export function parseMemoryCommand(input: string): {
 } {
   const trimmed = input.trim();
 
-  // Parse ./remember command
-  if (trimmed.startsWith('./remember ')) {
-    const content = trimmed.replace('./remember ', '');
+  // Parse /remember command
+  if (trimmed.startsWith('/remember ')) {
+    const content = trimmed.replace('/remember ', '');
     const parts = content.split('|').map(s => s.trim());
-    
+
     const title = parts[0] || 'Untitled Memory';
     const memoryContent = parts[1] || '';
     const tagString = parts[2] || '';
     const tags = tagString.match(/#[\w]+/g)?.map(t => t.slice(1)) || [];
-    
+
     return {
       type: 'remember',
       data: { title, content: memoryContent, tags }
     };
   }
 
-  // Parse ./recall command
-  if (trimmed.startsWith('./recall ')) {
-    const query = trimmed.replace('./recall ', '');
+  // Parse /recall command
+  if (trimmed.startsWith('/recall ')) {
+    const query = trimmed.replace('/recall ', '');
     return {
       type: 'recall',
       data: { query }
