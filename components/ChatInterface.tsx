@@ -984,6 +984,18 @@ function ChatInterfaceInner() {
       }
     }
 
+    // Get conversation context BEFORE adding the new message (React state might not update in time)
+    const currentConversation = conversations.find(c => c.id === conversationId);
+    const conversationMessages = currentConversation?.messages || [];
+
+    console.log('[ImageGen] Conversation context check:', {
+      conversationId,
+      foundConversation: !!currentConversation,
+      messageCount: conversationMessages.length,
+      selectedModel,
+      willEnhance: conversationMessages.length >= 2 && !!selectedModel,
+    });
+
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -1009,10 +1021,6 @@ function ChatInterfaceInner() {
       console.log('[ImageGen] Image Model:', modelToUse);
       console.log('[ImageGen] Quality:', qualityToUse);
       console.log('[ImageGen] Chat Model for context:', selectedModel);
-
-      // Get current conversation messages for context
-      const currentConversation = conversations.find(c => c.id === conversationId);
-      const conversationMessages = currentConversation?.messages || [];
 
       // Use the current chat model to generate a context-aware prompt
       let enhancedPrompt = prompt;
