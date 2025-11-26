@@ -1,7 +1,7 @@
 import type { Message } from '@/types';
 
 interface TitleGenerationOptions {
-  provider: 'openrouter' | 'groq' | 'openai' | 'claude' | 'cohere' | 'ollama';
+  provider: 'openrouter' | 'groq' | 'openai' | 'claude' | 'cohere' | 'ollama' | 'puter';
   modelId: string;
   userMessage: string;
   assistantMessage?: string;
@@ -57,6 +57,9 @@ Title:`;
         break;
       case 'ollama':
         generatedTitle = await generateTitleWithOllama(titlePrompt, modelId);
+        break;
+      case 'puter':
+        generatedTitle = await generateTitleWithPuter(titlePrompt, modelId);
         break;
       default:
         throw new Error(`Unsupported provider: ${provider}`);
@@ -194,6 +197,44 @@ async function generateTitleWithOllama(prompt: string, modelId: string): Promise
   return generateTitle(prompt.split('User: ')[1] || prompt, '', modelId);
 }
 
+async function generateTitleWithPuter(prompt: string, modelId: string): Promise<string> {
+  // Check if puter is available
+  if (typeof window === 'undefined' || !window.puter?.ai?.chat) {
+    console.log('[SmartTitle] Puter not available');
+    return '';
+  }
+
+  try {
+    // Use the same model or a fast fallback
+    const model = modelId || 'gpt-3.5-turbo';
+
+    console.log('[SmartTitle] Generating title with Puter model:', model);
+
+    const response = await window.puter.ai.chat(prompt, {
+      model: model,
+      stream: false,
+    });
+
+    const title = typeof response === 'string' ? response.trim() : '';
+    console.log('[SmartTitle] Generated title:', title);
+    return title;
+  } catch (error) {
+    console.error('[SmartTitle] Puter title generation error:', error);
+    return '';
+  }
+}
+
+// Declare puter on window for TypeScript
+declare global {
+  interface Window {
+    puter?: {
+      ai?: {
+        chat: (prompt: string | any[], options?: { model?: string; stream?: boolean }) => Promise<string | any>;
+      };
+    };
+  }
+}
+
 function cleanGeneratedTitle(title: string): string {
   if (!title) return '';
 
@@ -285,5 +326,5 @@ Title:`;
  */
 export function shouldUseSmartTitles(provider: string): boolean {
   // Enable smart titles for cloud providers
-  return ['openrouter', 'groq', 'openai', 'claude', 'cohere'].includes(provider);
+  return ['openrouter', 'groq', 'openai', 'claude', 'cohere', 'puter'].includes(provider);
 }
