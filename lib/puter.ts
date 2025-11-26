@@ -197,7 +197,7 @@ export async function sendPuterMessage(
             isReadableStream: stream instanceof ReadableStream,
             constructor: stream?.constructor?.name,
             type: typeof stream,
-            hasAsyncIterator: !!stream?.[Symbol.asyncIterator]
+            hasAsyncIterator: !!(stream as any)?.[Symbol.asyncIterator]
           });
 
           if (isAsyncIterable(stream)) {
