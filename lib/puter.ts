@@ -835,7 +835,7 @@ export async function sendPuterMessage(
     
     // If we get here, all models failed
     throw lastError || new Error('All Puter AI models failed');
-  } catch (error) {
+  } catch (error: any) {
     console.error('Puter AI error details:', error);
     console.error('Model ID that failed:', modelId);
     console.error('Error type:', typeof error);
@@ -852,17 +852,46 @@ export async function sendPuterMessage(
       console.error('Could not stringify error');
     }
 
-    // Create a more detailed error message
-    let errorMessage = 'Puter API call failed. ';
-    if (error instanceof Error) {
-      errorMessage += error.message;
+    // Extract the actual error message from Puter's error format
+    let errorMessage = '';
+
+    if (error?.error?.message) {
+      // Puter often returns { error: { message: "..." } }
+      errorMessage = error.error.message;
+    } else if (error?.error?.code) {
+      // Or { error: { code: "...", ... } }
+      errorMessage = `${error.error.code}: ${error.error.message || error.error.details || 'Unknown error'}`;
+    } else if (error?.message) {
+      errorMessage = error.message;
+    } else if (error?.error && typeof error.error === 'string') {
+      errorMessage = error.error;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
     } else if (typeof error === 'object' && error !== null) {
-      errorMessage += JSON.stringify(error);
+      // Try to extract any useful info from the object
+      const keys = Object.keys(error);
+      if (keys.length > 0) {
+        errorMessage = JSON.stringify(error, null, 2);
+      } else {
+        errorMessage = 'Unknown Puter API error';
+      }
     } else {
-      errorMessage += String(error);
+      errorMessage = String(error);
     }
 
-    throw new Error(errorMessage);
+    // Check for common Puter errors and provide helpful messages
+    const lowerError = errorMessage.toLowerCase();
+    if (lowerError.includes('not signed in') || lowerError.includes('sign in') || lowerError.includes('authentication')) {
+      throw new Error('Please sign in to Puter.com to use free AI models. Click the Puter sign-in button or visit puter.com');
+    } else if (lowerError.includes('rate limit') || lowerError.includes('too many requests')) {
+      throw new Error('Rate limit reached. Please wait a moment and try again.');
+    } else if (lowerError.includes('model not found') || lowerError.includes('invalid model')) {
+      throw new Error(`Model "${modelId}" is not available. Try selecting a different model.`);
+    } else if (lowerError.includes('insufficient') || lowerError.includes('credits') || lowerError.includes('balance') || lowerError.includes('users pay')) {
+      throw new Error('Your Puter credits are depleted. Visit puter.com to add credits, or use models with your own API keys (OpenRouter, Groq, etc.)');
+    }
+
+    throw new Error(`Puter API error: ${errorMessage}`);
   }
 }
 
