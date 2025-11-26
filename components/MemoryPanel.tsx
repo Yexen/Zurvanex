@@ -5,6 +5,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { memoryStorage } from '@/lib/memoryStorage';
 import { hardMemorySupabase } from '@/lib/hardMemorySupabase';
 import { invalidateCacheForChunk, invalidateAllCache } from '@/lib/smartSearch';
+import { generateSmartTitleFromContent } from '@/lib/smartTitles';
+import { generateSmartTags } from '@/lib/smartTags';
 import FolderTree from './FolderTree';
 import MemoryEditor from './MemoryEditor';
 import type { MemoryView, MemoryPanelState, Memory, Folder, TreeNode } from '@/types/memory';
@@ -72,6 +74,8 @@ export default function MemoryPanel() {
     currentItem: '',
     status: 'processing'
   });
+  const [useSmartTitles, setUseSmartTitles] = useState(false);
+  const [useSmartTags, setUseSmartTags] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
@@ -968,10 +972,42 @@ export default function MemoryPanel() {
 
           console.log(`Importing file: ${fileName} into folder: ${parentPath || 'root'} (ID: ${parentId})`);
 
+          // Generate smart title if enabled
+          let title = fileName.replace(/\.[^/.]+$/, ''); // Remove extension
+          if (useSmartTitles && content && content.length > 50) {
+            try {
+              console.log(`Generating smart title for: ${fileName}`);
+              const smartTitle = await generateSmartTitleFromContent(content);
+              if (smartTitle && smartTitle !== 'New Conversation') {
+                title = smartTitle;
+                console.log(`✓ Generated smart title: ${smartTitle}`);
+              }
+            } catch (error) {
+              console.error('Error generating smart title:', error);
+              // Fall back to filename
+            }
+          }
+
+          // Generate smart tags if enabled
+          let tags = ['imported-file', 'from-zip', `path:${filePath}`];
+          if (useSmartTags && content && content.length > 50) {
+            try {
+              console.log(`Generating smart tags for: ${fileName}`);
+              const smartTags = await generateSmartTags({ content, title });
+              if (smartTags && smartTags.length > 0) {
+                tags = [...smartTags, ...tags];
+                console.log(`✓ Generated smart tags: ${smartTags.join(', ')}`);
+              }
+            } catch (error) {
+              console.error('Error generating smart tags:', error);
+              // Fall back to default tags
+            }
+          }
+
           const memoryData = {
-            title: fileName.replace(/\.[^/.]+$/, ''), // Remove extension
+            title,
             content,
-            tags: ['imported-file', 'from-zip', `path:${filePath}`],
+            tags,
             folderId: parentId,
             userId: user.id,
           };
@@ -1261,6 +1297,51 @@ export default function MemoryPanel() {
             </svg>
             Import ZIP
           </button>
+
+          {/* Smart Import Options */}
+          <div style={{
+            display: 'flex',
+            gap: '16px',
+            alignItems: 'center',
+            fontSize: '13px',
+            color: 'var(--gray-med)',
+            marginLeft: '16px'
+          }}>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={useSmartTitles}
+                onChange={(e) => setUseSmartTitles(e.target.checked)}
+                style={{
+                  cursor: 'pointer',
+                  accentColor: 'var(--teal-bright)'
+                }}
+              />
+              <span>Smart Titles</span>
+            </label>
+            <label style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              cursor: 'pointer'
+            }}>
+              <input
+                type="checkbox"
+                checked={useSmartTags}
+                onChange={(e) => setUseSmartTags(e.target.checked)}
+                style={{
+                  cursor: 'pointer',
+                  accentColor: 'var(--teal-bright)'
+                }}
+              />
+              <span>Smart Tags</span>
+            </label>
+          </div>
         </div>
       </div>
 

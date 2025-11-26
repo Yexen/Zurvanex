@@ -235,6 +235,52 @@ function generateFallbackTitle(userMessage: string): string {
 }
 
 /**
+ * Generate a smart title from content (for memory/document imports)
+ */
+export async function generateSmartTitleFromContent(
+  content: string,
+  provider: 'openrouter' | 'groq' | 'openai' | 'claude' | 'cohere' | 'ollama' = 'groq',
+  modelId: string = 'llama-3.3-70b-versatile'
+): Promise<string> {
+  const titlePrompt = `Generate a concise, descriptive title (3-6 words) for this content. The title should capture the main topic or purpose.
+
+Content: ${content.slice(0, 500)}${content.length > 500 ? '...' : ''}
+
+Requirements:
+- 3-6 words maximum
+- Clear and descriptive
+- No quotes or special formatting
+- Capture the main topic/intent
+
+Title:`;
+
+  try {
+    let generatedTitle: string;
+
+    switch (provider) {
+      case 'groq':
+        generatedTitle = await generateTitleWithGroq(titlePrompt, modelId);
+        break;
+      case 'openrouter':
+        generatedTitle = await generateTitleWithOpenRouter(titlePrompt, modelId);
+        break;
+      default:
+        return generateFallbackTitle(content);
+    }
+
+    // Clean and validate the title
+    const cleanTitle = cleanGeneratedTitle(generatedTitle);
+
+    // Return the clean title or fallback
+    return cleanTitle || generateFallbackTitle(content);
+
+  } catch (error) {
+    console.error('Error generating smart title from content:', error);
+    return generateFallbackTitle(content);
+  }
+}
+
+/**
  * Determine if we should use AI title generation based on provider
  */
 export function shouldUseSmartTitles(provider: string): boolean {
