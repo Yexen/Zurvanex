@@ -891,6 +891,15 @@ export const PUTER_MODELS = [
     isFree: true,
   },
   {
+    id: 'claude-opus-4-5',
+    name: 'Claude Opus 4.5 (Free)',
+    description: '✅ Most capable Claude model',
+    contextWindow: 200000,
+    hasThinkingMode: true,
+    supportsVision: true,
+    isFree: true,
+  },
+  {
     id: 'gemini-2.5-flash',
     name: 'Gemini 2.5 Flash (Free)',
     description: '✅ Fast, multimodal, balanced',
