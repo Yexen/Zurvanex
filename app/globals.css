@@ -1647,3 +1647,61 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(64, 224, 208, 0.5);
 }
+
+/* Accessibility Styles */
+:root {
+  --base-font-size: 16px;
+}
+
+body {
+  font-size: var(--base-font-size);
+}
+
+/* High Contrast Mode */
+body.high-contrast {
+  --gray-light: #ffffff;
+  --gray-med: #ffffff;
+  --teal-bright: #00ffff;
+  --teal-med: #00cccc;
+  --dark-bg: #000000;
+  --darker-bg: #000000;
+}
+
+body.high-contrast .message-text {
+  border-width: 2px;
+}
+
+body.high-contrast .chat-item:hover,
+body.high-contrast .search-result-item:hover {
+  outline: 2px solid var(--teal-bright);
+}
+
+body.high-contrast input,
+body.high-contrast textarea,
+body.high-contrast select {
+  border-width: 2px !important;
+}
+
+body.high-contrast button:focus,
+body.high-contrast input:focus,
+body.high-contrast textarea:focus {
+  outline: 3px solid var(--teal-bright) !important;
+  outline-offset: 2px;
+}
+
+/* Reduced Motion */
+body.reduced-motion * {
+  animation: none !important;
+  transition: none !important;
+}
+
+body.reduced-motion .animate-fade-in,
+body.reduced-motion .animate-slide-in {
+  animation: none !important;
+}
+
+/* Screen Reader Friendly enhancements */
+body.screen-reader-friendly [aria-label],
+body.screen-reader-friendly [role="button"] {
+  outline: 1px dashed rgba(255, 255, 255, 0.3);
+}

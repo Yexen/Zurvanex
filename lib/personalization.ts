@@ -19,6 +19,11 @@ export function generateSystemPrompt(preferences: UserPreferences | null): strin
     "You are Zurvânex, a helpful AI assistant."
   ];
 
+  // Custom instructions - highest priority
+  if (preferences.custom_instructions) {
+    parts.push(`\n## Custom Instructions\n${preferences.custom_instructions}`);
+  }
+
   // Basic identity information
   if (preferences.nickname || preferences.display_name) {
     const name = preferences.nickname || preferences.display_name;
@@ -87,6 +92,18 @@ export function generateSystemPrompt(preferences: UserPreferences | null): strin
         break;
       case 'balanced':
         parts.push("- Use a balanced tone that's professional yet approachable");
+        break;
+      case 'encouraging':
+        parts.push("- Be supportive, motivating, and encouraging in your responses");
+        break;
+      case 'direct':
+        parts.push("- Be straightforward and direct, get to the point quickly");
+        break;
+      case 'thoughtful':
+        parts.push("- Be reflective and considerate, take time to think through responses");
+        break;
+      case 'playful':
+        parts.push("- Be fun, lighthearted, and playful in your communication");
         break;
     }
 

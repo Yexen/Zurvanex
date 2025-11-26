@@ -74,9 +74,12 @@ export interface UserPreferences {
   goals?: string;
   background?: string;
   
+  // Custom Instructions
+  custom_instructions?: string;
+
   // AI Interaction Preferences
   conversation_style: {
-    tone: 'professional' | 'casual' | 'friendly' | 'balanced';
+    tone: 'professional' | 'casual' | 'friendly' | 'balanced' | 'encouraging' | 'direct' | 'thoughtful' | 'playful';
     formality: 'formal' | 'casual' | 'adaptive';
     verbosity: 'concise' | 'detailed' | 'comprehensive';
     humor: boolean;
