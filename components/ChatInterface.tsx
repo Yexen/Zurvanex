@@ -29,6 +29,7 @@ import { getConversationMemory, formatMemoryForPrompt } from '@/lib/memory';
 import { getHardMemoryContext, formatHardMemoryForPrompt } from '@/lib/hardMemoryAI';
 import { generateSmartTitle, shouldUseSmartTitles } from '@/lib/smartTitles';
 import { smartHardMemorySearch } from '@/lib/smartHardMemorySearch';
+import { generateGreeting, type GreetingStyle } from '@/lib/greetings';
 
 function ChatInterfaceInner() {
   const router = useRouter();
@@ -63,6 +64,8 @@ function ChatInterfaceInner() {
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   // Guidelines modal state
   const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
+  // Dynamic greeting state
+  const [currentGreeting, setCurrentGreeting] = useState<{ greeting: string; subtext: string }>({ greeting: '', subtext: '' });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const hasInitialized = useRef(false);
@@ -135,6 +138,33 @@ function ChatInterfaceInner() {
       });
     });
   }, []);
+
+  // Generate dynamic greeting based on time and user preferences
+  useEffect(() => {
+    // Get greeting style, falling back to 'friendly' if not set or if it's an old string value
+    const rawStyle = preferences?.communication_prefs?.greeting_style;
+    const validStyles = ['friendly', 'professional', 'witty', 'zen', 'enthusiastic'];
+    const greetingStyle = (validStyles.includes(rawStyle as string) ? rawStyle : 'friendly') as GreetingStyle;
+    const userName = preferences?.nickname || preferences?.display_name;
+
+    const { greeting, subtext } = generateGreeting({
+      style: greetingStyle,
+      userName: userName || undefined,
+    });
+
+    setCurrentGreeting({ greeting, subtext });
+
+    // Regenerate greeting every 30 minutes to keep it fresh
+    const interval = setInterval(() => {
+      const { greeting: newGreeting, subtext: newSubtext } = generateGreeting({
+        style: greetingStyle,
+        userName: userName || undefined,
+      });
+      setCurrentGreeting({ greeting: newGreeting, subtext: newSubtext });
+    }, 30 * 60 * 1000);
+
+    return () => clearInterval(interval);
+  }, [preferences?.communication_prefs?.greeting_style, preferences?.nickname, preferences?.display_name]);
 
   const loadModels = async () => {
     try {
@@ -1863,7 +1893,7 @@ function ChatInterfaceInner() {
               )}
             </>
           ) : (
-            /* Empty State - Centered Logo with Welcome Message */
+            /* Empty State - Centered Logo with Dynamic Welcome Message */
             <div className="flex flex-col items-center justify-center h-full text-center animate-fade-in">
               <img
                 src="/Logo.png"
@@ -1874,19 +1904,18 @@ function ChatInterfaceInner() {
                   marginBottom: '20px',
                 }}
               />
-              <h1 className="text-3xl font-bold text-[var(--gray-med)] tracking-tight mb-4">
-                Zurvânex
+              <h1 className="text-2xl font-semibold text-[var(--gray-light)] tracking-tight mb-3" style={{ maxWidth: '500px', padding: '0 20px' }}>
+                {currentGreeting.greeting || 'Welcome to Zurvânex'}
               </h1>
               <p style={{
-                color: 'var(--gray-light)',
+                color: 'var(--gray-med)',
                 fontSize: '15px',
                 maxWidth: '480px',
                 lineHeight: '1.6',
                 marginBottom: '32px',
                 padding: '0 20px',
               }}>
-                Hey there! I&apos;m your AI companion, ready to help with anything you need.
-                Ask me questions, brainstorm ideas, or just chat.
+                {currentGreeting.subtext || 'Ask me anything, brainstorm ideas, or just chat.'}
               </p>
             </div>
           )}

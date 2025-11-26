@@ -20,19 +20,20 @@ export async function generateSmartTitle(options: TitleGenerationOptions): Promi
     ? `Previous context: ${context.map(m => `${m.role}: ${m.content.slice(0, 100)}`).join('\n')}`
     : '';
 
-  const titlePrompt = `Generate a concise, descriptive title (3-6 words) for this conversation. The title should capture the main topic or purpose.
+  const titlePrompt = `Create a witty, memorable title (3-6 words) for this chat. Be creative! Use wordplay, alliteration, puns, or clever references when fitting.
 
 ${contextText}
 
-Current exchange:
+The conversation:
 User: ${userMessage.slice(0, 200)}${userMessage.length > 200 ? '...' : ''}
 ${assistantMessage ? `Assistant: ${assistantMessage.slice(0, 200)}${assistantMessage.length > 200 ? '...' : ''}` : ''}
 
-Requirements:
-- 3-6 words maximum
-- Clear and descriptive
-- No quotes or special formatting
-- Capture the main topic/intent
+Guidelines:
+- 3-6 words max
+- Be clever, catchy, or playful
+- Match the tone (serious topics get thoughtful titles, fun topics get punny ones)
+- No quotes or formatting
+- Make it memorable!
 
 Title:`;
 
@@ -84,7 +85,7 @@ async function generateTitleWithOpenRouter(prompt: string, modelId: string): Pro
     body: JSON.stringify({
       messages: [{ role: 'user', content: prompt }],
       modelId,
-      systemPrompt: 'You are a title generator. Respond with ONLY the title, no explanations or extra text.',
+      systemPrompt: 'You are a creative title generator with a flair for wordplay. Respond with ONLY the title - be witty, clever, and memorable!',
     }),
   });
 
@@ -133,7 +134,7 @@ async function generateTitleWithGroq(prompt: string, modelId: string): Promise<s
     body: JSON.stringify({
       messages: [{ role: 'user', content: prompt }],
       modelId,
-      systemPrompt: 'You are a title generator. Respond with ONLY the title, no explanations or extra text.',
+      systemPrompt: 'You are a creative title generator with a flair for wordplay. Respond with ONLY the title - be witty, clever, and memorable!',
     }),
   });
 
@@ -274,15 +275,16 @@ export async function generateSmartTitleFromContent(
   provider: 'openrouter' | 'groq' | 'openai' | 'claude' | 'cohere' | 'ollama' = 'groq',
   modelId: string = 'llama-3.3-70b-versatile'
 ): Promise<string> {
-  const titlePrompt = `Generate a concise, descriptive title (3-6 words) for this content. The title should capture the main topic or purpose.
+  const titlePrompt = `Create a witty, memorable title (3-6 words) for this content. Be creative! Use wordplay, alliteration, or clever phrasing when fitting.
 
 Content: ${content.slice(0, 500)}${content.length > 500 ? '...' : ''}
 
-Requirements:
-- 3-6 words maximum
-- Clear and descriptive
-- No quotes or special formatting
-- Capture the main topic/intent
+Guidelines:
+- 3-6 words max
+- Be clever, catchy, or playful
+- Match the tone of the content
+- No quotes or formatting
+- Make it memorable!
 
 Title:`;
 

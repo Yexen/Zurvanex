@@ -43,7 +43,7 @@ export default function SettingsExtended({ isOpen, onClose }: SettingsExtendedPr
     
     // Communication
     communication_prefs: {
-      preferred_greeting: 'Hello',
+      greeting_style: 'friendly' as 'friendly' | 'professional' | 'witty' | 'zen' | 'enthusiastic',
       response_length: 'detailed',
       explanation_style: 'examples',
       feedback_preference: 'constructive',
@@ -921,19 +921,17 @@ export default function SettingsExtended({ isOpen, onClose }: SettingsExtendedPr
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginBottom: '24px' }}>
                       <div>
                         <label style={{ display: 'block', color: 'var(--gray-med)', marginBottom: '12px', fontSize: '14px', fontWeight: '500' }}>
-                          Preferred Greeting
+                          Greeting Style
                         </label>
-                        <input
-                          type="text"
-                          value={formData.communication_prefs.preferred_greeting}
+                        <select
+                          value={formData.communication_prefs.greeting_style}
                           onChange={(e) => setFormData(prev => ({
                             ...prev,
                             communication_prefs: {
                               ...prev.communication_prefs,
-                              preferred_greeting: e.target.value
+                              greeting_style: e.target.value as 'friendly' | 'professional' | 'witty' | 'zen' | 'enthusiastic'
                             }
                           }))}
-                          placeholder="Hello, Hi, Hey there, etc."
                           style={{
                             width: '100%',
                             padding: '12px',
@@ -943,7 +941,16 @@ export default function SettingsExtended({ isOpen, onClose }: SettingsExtendedPr
                             color: 'var(--gray-light)',
                             fontSize: '14px',
                           }}
-                        />
+                        >
+                          <option value="friendly">Friendly - Warm and casual</option>
+                          <option value="professional">Professional - Polished and formal</option>
+                          <option value="witty">Witty - Clever and humorous</option>
+                          <option value="zen">Zen - Calm and mindful</option>
+                          <option value="enthusiastic">Enthusiastic - Energetic and upbeat</option>
+                        </select>
+                        <p style={{ fontSize: '12px', color: 'var(--gray-dark)', marginTop: '8px' }}>
+                          How I greet you on the home screen
+                        </p>
                       </div>
 
                       <div>

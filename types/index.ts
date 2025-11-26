@@ -86,7 +86,7 @@ export interface UserPreferences {
   
   // Communication Preferences
   communication_prefs: {
-    preferred_greeting: string;
+    greeting_style: 'friendly' | 'professional' | 'witty' | 'zen' | 'enthusiastic';
     response_length: 'brief' | 'detailed' | 'comprehensive';
     explanation_style: 'examples' | 'step_by_step' | 'conceptual';
     feedback_preference: 'direct' | 'constructive' | 'encouraging';
