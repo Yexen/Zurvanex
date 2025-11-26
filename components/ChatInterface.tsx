@@ -46,8 +46,9 @@ function ChatInterfaceInner() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [models, setModels] = useState<Model[]>([]);
   const [selectedModel, setSelectedModel] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [streamingContent, setStreamingContent] = useState('');
+  // Per-conversation loading states
+  const [loadingConversations, setLoadingConversations] = useState<Record<string, boolean>>({});
+  const [streamingContents, setStreamingContents] = useState<Record<string, string>>({});
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [saveMoment, setSaveMoment] = useState<{ user: Message; ai: Message } | null>(null);
   const [showScrollButtons, setShowScrollButtons] = useState(false);
@@ -56,6 +57,29 @@ function ChatInterfaceInner() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const hasInitialized = useRef(false);
+
+  // Get loading state and streaming content for current conversation
+  const isLoading = activeConversationId ? loadingConversations[activeConversationId] || false : false;
+  const streamingContent = activeConversationId ? streamingContents[activeConversationId] || '' : '';
+
+  // Helper to set loading state for a specific conversation
+  const setConversationLoading = (convId: string, loading: boolean) => {
+    setLoadingConversations(prev => ({ ...prev, [convId]: loading }));
+  };
+
+  // Helper to update streaming content for a specific conversation
+  const appendStreamingContent = (convId: string, chunk: string) => {
+    setStreamingContents(prev => ({ ...prev, [convId]: (prev[convId] || '') + chunk }));
+  };
+
+  // Helper to clear streaming content for a specific conversation
+  const clearStreamingContent = (convId: string) => {
+    setStreamingContents(prev => {
+      const updated = { ...prev };
+      delete updated[convId];
+      return updated;
+    });
+  };
 
   // Get or set draft message for current conversation
   const currentDraft = activeConversationId ? draftMessages[activeConversationId] || '' : draftMessages['__new__'] || '';
@@ -260,7 +284,7 @@ function ChatInterfaceInner() {
   };
 
   // Helper function to send message to Groq API with streaming
-  const sendGroqMessage = async (messages: Message[], modelId: string): Promise<string> => {
+  const sendGroqMessage = async (messages: Message[], modelId: string, onChunk?: (chunk: string) => void): Promise<string> => {
     // Generate system prompt from user preferences
     console.log('[DEBUG] sendGroqMessage: Generating system prompt', {
       hasPreferences: !!preferences,
@@ -379,7 +403,7 @@ function ChatInterfaceInner() {
               }
               if (parsed.content) {
                 fullResponse += parsed.content;
-                setStreamingContent((prev) => prev + parsed.content);
+                onChunk?.(parsed.content);
               }
             } catch (e) {
               console.error('Error parsing SSE data:', e);
@@ -395,7 +419,7 @@ function ChatInterfaceInner() {
   };
 
   // Helper function to send message to OpenRouter API with streaming
-  const sendOpenRouterMessage = async (messages: Message[], modelId: string): Promise<string> => {
+  const sendOpenRouterMessage = async (messages: Message[], modelId: string, onChunk?: (chunk: string) => void): Promise<string> => {
     // Generate system prompt from user preferences
     console.log('[DEBUG] sendOpenRouterMessage: Generating system prompt', {
       hasPreferences: !!preferences,
@@ -514,7 +538,7 @@ function ChatInterfaceInner() {
               }
               if (parsed.content) {
                 fullResponse += parsed.content;
-                setStreamingContent((prev) => prev + parsed.content);
+                onChunk?.(parsed.content);
               }
             } catch (e) {
               console.error('Error parsing SSE data:', e);
@@ -530,7 +554,7 @@ function ChatInterfaceInner() {
   };
 
   // Helper function to send message to OpenAI API with streaming
-  const sendOpenAIMessage = async (messages: Message[], modelId: string): Promise<string> => {
+  const sendOpenAIMessage = async (messages: Message[], modelId: string, onChunk?: (chunk: string) => void): Promise<string> => {
     // Generate system prompt from user preferences
     let systemPrompt = shouldIncludePersonalization(preferences)
       ? generateSystemPrompt(preferences)
@@ -643,7 +667,7 @@ function ChatInterfaceInner() {
               }
               if (parsed.content) {
                 fullResponse += parsed.content;
-                setStreamingContent((prev) => prev + parsed.content);
+                onChunk?.(parsed.content);
               }
             } catch (e) {
               console.error('Error parsing SSE data:', e);
@@ -659,7 +683,7 @@ function ChatInterfaceInner() {
   };
 
   // Helper function to send message to Claude API with streaming
-  const sendClaudeMessage = async (messages: Message[], modelId: string): Promise<string> => {
+  const sendClaudeMessage = async (messages: Message[], modelId: string, onChunk?: (chunk: string) => void): Promise<string> => {
     // Generate system prompt from user preferences
     let systemPrompt = shouldIncludePersonalization(preferences) 
       ? generateSystemPrompt(preferences)
@@ -739,7 +763,7 @@ function ChatInterfaceInner() {
               }
               if (parsed.content) {
                 fullResponse += parsed.content;
-                setStreamingContent((prev) => prev + parsed.content);
+                onChunk?.(parsed.content);
               }
             } catch (e) {
               console.error('Error parsing SSE data:', e);
@@ -755,7 +779,7 @@ function ChatInterfaceInner() {
   };
 
   // Helper function to send message to Cohere API with streaming
-  const sendCohereMessage = async (messages: Message[], modelId: string): Promise<string> => {
+  const sendCohereMessage = async (messages: Message[], modelId: string, onChunk?: (chunk: string) => void): Promise<string> => {
     // Generate system prompt from user preferences
     let systemPrompt = shouldIncludePersonalization(preferences) 
       ? generateSystemPrompt(preferences)
@@ -835,7 +859,7 @@ function ChatInterfaceInner() {
               }
               if (parsed.content) {
                 fullResponse += parsed.content;
-                setStreamingContent((prev) => prev + parsed.content);
+                onChunk?.(parsed.content);
               }
             } catch (e) {
               console.error('Error parsing SSE data:', e);
@@ -851,7 +875,7 @@ function ChatInterfaceInner() {
   };
 
   // Helper function to send message to Puter AI with memory and personalization
-  const sendPuterMessageWithMemory = async (messages: Message[], modelId: string): Promise<string> => {
+  const sendPuterMessageWithMemory = async (messages: Message[], modelId: string, onChunk?: (chunk: string) => void): Promise<string> => {
     // Generate system prompt from user preferences
     let systemPrompt = shouldIncludePersonalization(preferences)
       ? generateSystemPrompt(preferences)
@@ -919,18 +943,10 @@ function ChatInterfaceInner() {
     });
 
     // Use the sendPuterMessage function with systemPrompt
-    return await sendPuterMessage(messages, modelId, (chunk) => {
-      setStreamingContent((prev) => prev + chunk);
-    }, systemPrompt);
+    return await sendPuterMessage(messages, modelId, onChunk, systemPrompt);
   };
 
   const handleSendMessage = async (content: string, images?: string[]) => {
-    // Prevent multiple simultaneous calls
-    if (isLoading) {
-      console.log('Already loading, ignoring duplicate send request');
-      return;
-    }
-
     // If no model is selected, keep the message but show alert
     if (!selectedModel) {
       // Don't clear the draft - just show the error
@@ -958,6 +974,12 @@ function ChatInterfaceInner() {
         console.error('Full error object:', JSON.stringify(error, null, 2));
         return;
       }
+    }
+
+    // Check if this specific conversation is already loading
+    if (loadingConversations[conversationId]) {
+      console.log('This conversation is already loading, ignoring duplicate send request');
+      return;
     }
 
     // Get conversation and determine if this is the first message
@@ -1010,11 +1032,14 @@ function ChatInterfaceInner() {
       return;
     }
 
-    setIsLoading(true);
-    setStreamingContent('');
+    setConversationLoading(conversationId, true);
+    clearStreamingContent(conversationId);
 
     // Track performance metrics
     const startTime = Date.now();
+
+    // Store conversationId for use in callbacks (closures)
+    const currentConvId = conversationId;
 
     try {
       // Get updated conversation with the user message
@@ -1037,30 +1062,31 @@ function ChatInterfaceInner() {
 
       let response: string;
 
+      // Create streaming callback for this specific conversation
+      const onChunk = (chunk: string) => appendStreamingContent(currentConvId, chunk);
+
       // Route to appropriate provider
       if (provider === 'openrouter') {
         // Use OpenRouter API via our route
-        response = await sendOpenRouterMessage(allMessages, selectedModel);
+        response = await sendOpenRouterMessage(allMessages, selectedModel, onChunk);
       } else if (provider === 'groq') {
         // Use Groq API via our route
-        response = await sendGroqMessage(allMessages, selectedModel);
+        response = await sendGroqMessage(allMessages, selectedModel, onChunk);
       } else if (provider === 'openai') {
         // Use OpenAI API via our route
-        response = await sendOpenAIMessage(allMessages, selectedModel);
+        response = await sendOpenAIMessage(allMessages, selectedModel, onChunk);
       } else if (provider === 'claude') {
         // Use Claude API via our route
-        response = await sendClaudeMessage(allMessages, selectedModel);
+        response = await sendClaudeMessage(allMessages, selectedModel, onChunk);
       } else if (provider === 'cohere') {
         // Use Cohere API via our route
-        response = await sendCohereMessage(allMessages, selectedModel);
+        response = await sendCohereMessage(allMessages, selectedModel, onChunk);
       } else if (provider === 'puter') {
         // Use Puter AI (free, user-pays) with memory and personalization
-        response = await sendPuterMessageWithMemory(allMessages, selectedModel);
+        response = await sendPuterMessageWithMemory(allMessages, selectedModel, onChunk);
       } else {
         // Use Ollama (default)
-        response = await sendMessage(allMessages, selectedModel, (chunk) => {
-          setStreamingContent((prev) => prev + chunk);
-        });
+        response = await sendMessage(allMessages, selectedModel, onChunk);
       }
 
       console.log('Response received');
@@ -1177,8 +1203,8 @@ function ChatInterfaceInner() {
         console.error('Error adding error message:', addError);
       }
     } finally {
-      setIsLoading(false);
-      setStreamingContent('');
+      setConversationLoading(currentConvId, false);
+      clearStreamingContent(currentConvId);
     }
   };
 
@@ -1199,16 +1225,19 @@ function ChatInterfaceInner() {
     const lastUserMessage = [...messagesBeforeRegenerate].reverse().find(m => m.role === 'user');
     if (!lastUserMessage) return;
 
+    // Store conversation ID for closure
+    const regenConvId = activeConversationId;
+
     // Re-send the last user message to get a new response
-    setIsLoading(true);
-    setStreamingContent('');
+    setConversationLoading(regenConvId, true);
+    clearStreamingContent(regenConvId);
 
     // Track performance metrics
     const startTime = Date.now();
 
     try {
       const response = await sendMessage(messagesBeforeRegenerate, selectedModel, (chunk) => {
-        setStreamingContent((prev) => prev + chunk);
+        appendStreamingContent(regenConvId, chunk);
       });
 
       // Calculate performance metrics
@@ -1232,12 +1261,12 @@ function ChatInterfaceInner() {
         },
       };
 
-      await addMessage(activeConversationId, assistantMessage);
+      await addMessage(regenConvId, assistantMessage);
     } catch (error) {
       console.error('Error regenerating message:', error);
     } finally {
-      setIsLoading(false);
-      setStreamingContent('');
+      setConversationLoading(regenConvId, false);
+      clearStreamingContent(regenConvId);
     }
   };
 
