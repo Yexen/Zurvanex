@@ -27,7 +27,7 @@ const defaultPreferences: Partial<UserPreferences> = {
     technical_depth: 'medium',
   },
   communication_prefs: {
-    preferred_greeting: 'Hello',
+    greeting_style: 'friendly',
     response_length: 'detailed',
     explanation_style: 'examples',
     feedback_preference: 'constructive',
