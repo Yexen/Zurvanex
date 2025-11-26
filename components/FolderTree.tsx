@@ -201,25 +201,6 @@ function TreeItem({
           onMouseLeave={() => setHoveredNodeId(null)}
           onClick={() => onSelectNode(node.id, 'folder')}
         >
-          {/* Checkbox */}
-          {onToggleSelection && (
-            <input
-              type="checkbox"
-              checked={isChecked}
-              onChange={(e) => {
-                e.stopPropagation();
-                onToggleSelection(node.id, 'folder');
-              }}
-              style={{
-                width: '16px',
-                height: '16px',
-                marginRight: '8px',
-                cursor: 'pointer',
-                accentColor: 'var(--teal-bright)'
-              }}
-            />
-          )}
-
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -250,7 +231,36 @@ function TreeItem({
           </div>
 
           {isHovered && (
-            <div ref={menuRef} style={{ position: 'relative' }}>
+            <div ref={menuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              {/* Checkbox - transparent, beside three dots, hover only */}
+              {onToggleSelection && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSelection(node.id, 'folder');
+                  }}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    background: isChecked ? 'rgba(114, 212, 204, 0.2)' : 'transparent',
+                    border: `1.5px solid ${isChecked ? 'var(--teal-bright)' : 'rgba(255, 255, 255, 0.3)'}`,
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s',
+                    padding: 0
+                  }}
+                  title="Select"
+                >
+                  {isChecked && (
+                    <svg width="14" height="14" fill="none" stroke="var(--teal-bright)" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+              )}
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -567,25 +577,6 @@ function TreeItem({
         onMouseLeave={() => setHoveredNodeId(null)}
         onClick={() => onSelectNode(node.id, 'memory')}
       >
-        {/* Checkbox */}
-        {onToggleSelection && (
-          <input
-            type="checkbox"
-            checked={isChecked}
-            onChange={(e) => {
-              e.stopPropagation();
-              onToggleSelection(node.id, 'memory');
-            }}
-            style={{
-              width: '16px',
-              height: '16px',
-              marginRight: '8px',
-              cursor: 'pointer',
-              accentColor: 'var(--teal-bright)'
-            }}
-          />
-        )}
-
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
           <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -594,7 +585,36 @@ function TreeItem({
         </div>
 
         {isHovered && (
-          <div ref={menuRef} style={{ position: 'relative' }}>
+          <div ref={menuRef} style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            {/* Checkbox - transparent, beside three dots, hover only */}
+            {onToggleSelection && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleSelection(node.id, 'memory');
+                }}
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  background: isChecked ? 'rgba(114, 212, 204, 0.2)' : 'transparent',
+                  border: `1.5px solid ${isChecked ? 'var(--teal-bright)' : 'rgba(255, 255, 255, 0.3)'}`,
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s',
+                  padding: 0
+                }}
+                title="Select"
+              >
+                {isChecked && (
+                  <svg width="14" height="14" fill="none" stroke="var(--teal-bright)" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </button>
+            )}
             <button
               onClick={(e) => {
                 e.stopPropagation();

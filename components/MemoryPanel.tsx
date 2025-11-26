@@ -78,6 +78,20 @@ export default function MemoryPanel() {
   const [useSmartTags, setUseSmartTags] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [notification, setNotification] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'info';
+    message: string;
+  }>({ show: false, type: 'info', message: '' });
+
+  // Show in-app notification
+  const showNotification = useCallback((type: 'success' | 'error' | 'info', message: string) => {
+    setNotification({ show: true, type, message });
+    setTimeout(() => {
+      setNotification(prev => ({ ...prev, show: false }));
+    }, 3000);
+  }, []);
 
   // Initialize storage and load data
   useEffect(() => {
@@ -376,7 +390,7 @@ export default function MemoryPanel() {
       await loadData();
     } catch (error) {
       console.error('Error deleting node:', error);
-      alert(`Error deleting ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showNotification('error', `Error deleting ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, [state.selectedFolderId, state.selectedMemoryId, user?.id]);
 
@@ -402,7 +416,7 @@ export default function MemoryPanel() {
       await loadData();
     } catch (error) {
       console.error('Error renaming node:', error);
-      alert(`Error renaming ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showNotification('error', `Error renaming ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, []);
 
@@ -427,7 +441,7 @@ export default function MemoryPanel() {
       await loadData();
     } catch (error) {
       console.error('Error moving node:', error);
-      alert(`Error moving ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showNotification('error', `Error moving ${type}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }, []);
 
@@ -641,11 +655,11 @@ export default function MemoryPanel() {
         }
       }
 
-      alert(`✅ Successfully created ${sections.length} new memories!\n\nOriginal memory "${memory.title}" is still there.`);
+      showNotification('success', `Created ${sections.length} new memories from "${memory.title}"`);
       await loadData();
     } catch (error) {
       console.error('Error splitting memory:', error);
-      alert('Error splitting memory. Check console for details.');
+      showNotification('error', 'Error splitting memory. Check console for details.');
     }
   }, [user?.id]);
 
@@ -759,7 +773,7 @@ export default function MemoryPanel() {
       }
     }
 
-    alert(`✅ Successfully imported ${imported}/${filesArray.length} files!`);
+    showNotification('success', `Imported ${imported}/${filesArray.length} files!`);
     await loadData();
 
     // Reset file input
@@ -772,17 +786,32 @@ export default function MemoryPanel() {
     const fileType = file.type;
     const fileName = file.name.toLowerCase();
 
-    // Text files
-    if (fileType.includes('text') || fileName.endsWith('.txt') || fileName.endsWith('.md')) {
+    // Text files and Markdown
+    if (fileType.includes('text') || fileName.endsWith('.txt') || fileName.endsWith('.md') || fileName.endsWith('.markdown')) {
       return await file.text();
     }
 
-    // HTML files
-    if (fileType.includes('html') || fileName.endsWith('.html')) {
+    // HTML files - extract meaningful text content
+    if (fileType.includes('html') || fileName.endsWith('.html') || fileName.endsWith('.htm')) {
       const html = await file.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
-      return doc.body.textContent || doc.body.innerText || '';
+
+      // Remove script and style elements
+      const scripts = doc.querySelectorAll('script, style, noscript');
+      scripts.forEach(s => s.remove());
+
+      // Get text content with better formatting
+      const title = doc.querySelector('title')?.textContent || '';
+      const bodyText = doc.body?.textContent || doc.body?.innerText || '';
+
+      // Clean up whitespace
+      const cleanText = bodyText
+        .replace(/\s+/g, ' ')
+        .replace(/\n\s*\n/g, '\n\n')
+        .trim();
+
+      return title ? `# ${title}\n\n${cleanText}` : cleanText;
     }
 
     // PDF files (using PDF.js if available)
@@ -804,7 +833,7 @@ export default function MemoryPanel() {
 
           return fullText.trim();
         } else {
-          alert('PDF.js not loaded. Please refresh the page and try again.');
+          showNotification('error', 'PDF.js not loaded. Please refresh the page and try again.');
           return null;
         }
       } catch (error) {
@@ -813,7 +842,7 @@ export default function MemoryPanel() {
       }
     }
 
-    alert(`Unsupported file type: ${file.type || fileName}`);
+    showNotification('error', `Unsupported file type: ${file.type || fileName}`);
     return null;
   };
 
@@ -823,7 +852,7 @@ export default function MemoryPanel() {
 
     const zipFile = files[0];
     if (!zipFile.name.toLowerCase().endsWith('.zip')) {
-      alert('Please select a valid ZIP file');
+      showNotification('error', 'Please select a valid ZIP file');
       return;
     }
 
@@ -864,8 +893,17 @@ export default function MemoryPanel() {
 
       console.log('Folders to create:', sortedFolders);
 
-      // Calculate total items
-      const fileEntries = entries.filter(path => !zipContent.files[path].dir && !path.split('/').pop()?.startsWith('.'));
+      // Calculate total items - filter for supported file types
+      const supportedExtensions = ['.txt', '.md', '.markdown', '.html', '.htm', '.pdf'];
+      const fileEntries = entries.filter(path => {
+        if (zipContent.files[path].dir) return false;
+        const fileName = path.split('/').pop()?.toLowerCase() || '';
+        if (fileName.startsWith('.')) return false;
+        // Include all files but prioritize supported ones
+        return supportedExtensions.some(ext => fileName.endsWith(ext)) ||
+               !fileName.includes('.') || // Files without extension
+               true; // Include all other files too
+      });
       const totalItems = sortedFolders.length + fileEntries.length;
 
       // Show progress modal
@@ -1051,6 +1089,11 @@ export default function MemoryPanel() {
       // Reload data to refresh tree (this will call buildTreeNodes with expanded folders)
       await loadData();
 
+      // Debug: Log the loaded folders and tree structure
+      console.log('📁 Debug - Folders loaded after import:', folders.length);
+      console.log('📁 Debug - Tree nodes after import:', treeNodes.length);
+      console.log('📁 Debug - Expanded folders:', Array.from(expandedFolders));
+
       // Reset file input
       if (zipInputRef.current) {
         zipInputRef.current.value = '';
@@ -1078,6 +1121,95 @@ export default function MemoryPanel() {
       }, 3000);
     }
   }, [user?.id, state.selectedFolderId, loadData]);
+
+  // Drag and drop handlers
+  const handleDragEnter = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragging to false if we're leaving the drop zone entirely
+    if (e.currentTarget === e.target) {
+      setIsDragging(false);
+    }
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (!user?.id) return;
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    // Check if any file is a ZIP
+    const zipFiles = files.filter(f => f.name.toLowerCase().endsWith('.zip'));
+    const otherFiles = files.filter(f => !f.name.toLowerCase().endsWith('.zip'));
+
+    // Process ZIP files
+    for (const zipFile of zipFiles) {
+      // Create a fake event for the ZIP handler
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(zipFile);
+      const fakeEvent = {
+        target: { files: dataTransfer.files }
+      } as unknown as React.ChangeEvent<HTMLInputElement>;
+      await handleImportZip(fakeEvent);
+    }
+
+    // Process other files (PDF, TXT, HTML, MD)
+    if (otherFiles.length > 0) {
+      let imported = 0;
+      let failed = 0;
+
+      for (const file of otherFiles) {
+        try {
+          const content = await extractFileContent(file);
+          if (!content) {
+            failed++;
+            continue;
+          }
+
+          const memoryData = {
+            title: file.name.replace(/\.[^/.]+$/, ''),
+            content,
+            tags: ['imported', `from-${file.type || 'file'}`, 'drag-drop'],
+            folderId: state.selectedFolderId,
+            userId: user.id,
+          };
+
+          if (isSupabaseAvailable()) {
+            await hardMemorySupabase.saveMemory(memoryData);
+          } else {
+            await memoryStorage.saveMemory(memoryData);
+          }
+
+          imported++;
+        } catch (error) {
+          console.error(`Error importing ${file.name}:`, error);
+          failed++;
+        }
+      }
+
+      if (imported > 0) {
+        showNotification('success', `Imported ${imported} file${imported > 1 ? 's' : ''}${failed > 0 ? `, ${failed} failed` : ''}`);
+        await loadData();
+      } else if (failed > 0) {
+        showNotification('error', `Failed to import ${failed} file${failed > 1 ? 's' : ''}`);
+      }
+    }
+  }, [user?.id, state.selectedFolderId, handleImportZip, loadData, showNotification]);
 
   const handleSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -1179,12 +1311,50 @@ export default function MemoryPanel() {
   }
 
   return (
-    <div style={{ 
-      height: '100vh', 
-      display: 'flex', 
-      flexDirection: 'column',
-      background: 'var(--bg-primary)'
-    }}>
+    <div
+      style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        background: 'var(--bg-primary)',
+        position: 'relative'
+      }}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+    >
+      {/* Drag and Drop Overlay */}
+      {isDragging && (
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(61, 90, 103, 0.95)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          border: '3px dashed var(--teal-bright)',
+          borderRadius: '12px',
+          margin: '8px'
+        }}>
+          <div style={{
+            textAlign: 'center',
+            color: 'var(--gray-light)'
+          }}>
+            <svg width="64" height="64" fill="none" stroke="var(--teal-bright)" viewBox="0 0 24 24" style={{ marginBottom: '16px' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <h3 style={{ fontSize: '24px', fontWeight: '600', marginBottom: '8px' }}>Drop files here</h3>
+            <p style={{ fontSize: '14px', color: 'var(--gray-med)' }}>
+              ZIP, PDF, TXT, HTML, or Markdown files
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div style={{
         height: '80px',
@@ -1250,9 +1420,9 @@ export default function MemoryPanel() {
             onClick={() => fileInputRef.current?.click()}
             style={{
               padding: '8px 16px',
-              background: 'rgba(34, 197, 94, 0.1)',
-              color: '#22c55e',
-              border: '1px solid rgba(34, 197, 94, 0.3)',
+              background: 'rgba(114, 212, 204, 0.1)',
+              color: 'var(--teal-bright)',
+              border: '1px solid rgba(114, 212, 204, 0.3)',
               borderRadius: '6px',
               fontSize: '14px',
               fontWeight: '600',
@@ -1280,9 +1450,9 @@ export default function MemoryPanel() {
             onClick={() => zipInputRef.current?.click()}
             style={{
               padding: '8px 16px',
-              background: 'rgba(168, 85, 247, 0.1)',
-              color: '#a855f7',
-              border: '1px solid rgba(168, 85, 247, 0.3)',
+              background: 'rgba(61, 90, 103, 0.3)',
+              color: 'var(--gray-med)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               borderRadius: '6px',
               fontSize: '14px',
               fontWeight: '600',
@@ -1491,9 +1661,9 @@ export default function MemoryPanel() {
                       onClick={handleBatchMove}
                       style={{
                         padding: '6px 12px',
-                        background: 'rgba(34, 197, 94, 0.1)',
-                        color: '#22c55e',
-                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                        background: 'rgba(114, 212, 204, 0.1)',
+                        color: 'var(--teal-bright)',
+                        border: '1px solid rgba(114, 212, 204, 0.3)',
                         borderRadius: '6px',
                         fontSize: '11px',
                         fontWeight: '600',
@@ -1955,7 +2125,7 @@ export default function MemoryPanel() {
                 <div style={{
                   width: `${(importProgress.current / importProgress.total) * 100}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, var(--teal-bright), #22c55e)',
+                  background: 'linear-gradient(90deg, var(--teal-bright), var(--teal-med))',
                   transition: 'width 0.3s ease',
                   borderRadius: '4px'
                 }} />
@@ -1989,7 +2159,7 @@ export default function MemoryPanel() {
         }}>
           <div style={{
             background: 'var(--darker-bg)',
-            border: `2px solid ${importProgress.status === 'success' ? '#22c55e' : '#ef4444'}`,
+            border: `2px solid ${importProgress.status === 'success' ? 'var(--teal-bright)' : '#ef4444'}`,
             borderRadius: '16px',
             padding: '32px',
             minWidth: '400px',
@@ -1997,10 +2167,22 @@ export default function MemoryPanel() {
             textAlign: 'center'
           }}>
             <div style={{
-              fontSize: '48px',
-              marginBottom: '16px'
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              background: importProgress.status === 'success' ? 'rgba(114, 212, 204, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px auto'
             }}>
-              {importProgress.status === 'success' ? '✅' : '⚠️'}
+              <svg width="24" height="24" fill="none" stroke={importProgress.status === 'success' ? 'var(--teal-bright)' : '#ef4444'} viewBox="0 0 24 24">
+                {importProgress.status === 'success' ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                )}
+              </svg>
             </div>
             <h3 style={{
               fontSize: '20px',
@@ -2021,8 +2203,8 @@ export default function MemoryPanel() {
               onClick={() => setImportProgress(prev => ({ ...prev, message: undefined }))}
               style={{
                 padding: '8px 24px',
-                background: importProgress.status === 'success' ? '#22c55e' : '#ef4444',
-                color: '#fff',
+                background: importProgress.status === 'success' ? 'var(--teal-bright)' : '#ef4444',
+                color: importProgress.status === 'success' ? '#000' : '#fff',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '14px',
@@ -2112,7 +2294,7 @@ export default function MemoryPanel() {
                 <div style={{
                   width: `${(batchProgress.current / batchProgress.total) * 100}%`,
                   height: '100%',
-                  background: 'linear-gradient(90deg, var(--teal-bright), #22c55e)',
+                  background: 'linear-gradient(90deg, var(--teal-bright), var(--teal-med))',
                   transition: 'width 0.3s ease',
                   borderRadius: '4px'
                 }} />
@@ -2146,7 +2328,7 @@ export default function MemoryPanel() {
         }}>
           <div style={{
             background: 'var(--darker-bg)',
-            border: `2px solid ${batchProgress.status === 'success' ? '#22c55e' : '#ef4444'}`,
+            border: `2px solid ${batchProgress.status === 'success' ? 'var(--teal-bright)' : '#ef4444'}`,
             borderRadius: '16px',
             padding: '32px',
             minWidth: '400px',
@@ -2154,10 +2336,22 @@ export default function MemoryPanel() {
             textAlign: 'center'
           }}>
             <div style={{
-              fontSize: '48px',
-              marginBottom: '16px'
+              width: '48px',
+              height: '48px',
+              borderRadius: '50%',
+              background: batchProgress.status === 'success' ? 'rgba(114, 212, 204, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 16px auto'
             }}>
-              {batchProgress.status === 'success' ? '✅' : '⚠️'}
+              <svg width="24" height="24" fill="none" stroke={batchProgress.status === 'success' ? 'var(--teal-bright)' : '#ef4444'} viewBox="0 0 24 24">
+                {batchProgress.status === 'success' ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                )}
+              </svg>
             </div>
             <h3 style={{
               fontSize: '20px',
@@ -2178,8 +2372,8 @@ export default function MemoryPanel() {
               onClick={() => setBatchProgress(prev => ({ ...prev, message: undefined }))}
               style={{
                 padding: '8px 24px',
-                background: batchProgress.status === 'success' ? '#22c55e' : '#ef4444',
-                color: '#fff',
+                background: batchProgress.status === 'success' ? 'var(--teal-bright)' : '#ef4444',
+                color: batchProgress.status === 'success' ? '#000' : '#fff',
                 border: 'none',
                 borderRadius: '6px',
                 fontSize: '14px',
@@ -2193,11 +2387,70 @@ export default function MemoryPanel() {
         </div>
       )}
 
+      {/* In-App Notification Toast */}
+      {notification.show && (
+        <div style={{
+          position: 'fixed',
+          top: '24px',
+          right: '24px',
+          padding: '16px 24px',
+          background: notification.type === 'success' ? 'rgba(114, 212, 204, 0.95)' :
+                     notification.type === 'error' ? 'rgba(239, 68, 68, 0.95)' :
+                     'rgba(61, 90, 103, 0.95)',
+          color: notification.type === 'success' ? '#000' : '#fff',
+          borderRadius: '8px',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.4)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px',
+          zIndex: 10000,
+          animation: 'slideInNotification 0.3s ease',
+          maxWidth: '400px'
+        }}>
+          <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {notification.type === 'success' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            ) : notification.type === 'error' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            )}
+          </svg>
+          <span style={{ fontWeight: '500', fontSize: '14px' }}>{notification.message}</span>
+          <button
+            onClick={() => setNotification(prev => ({ ...prev, show: false }))}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: 'inherit',
+              cursor: 'pointer',
+              padding: '4px',
+              marginLeft: '8px',
+              opacity: 0.7
+            }}
+          >
+            <svg width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Add CSS animation for spinner */}
       <style jsx>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+        @keyframes slideInNotification {
+          from {
+            opacity: 0;
+            transform: translateX(100px);
+          }
+          to {
+            opacity: 1;
+            transform: translateX(0);
+          }
         }
       `}</style>
     </div>
