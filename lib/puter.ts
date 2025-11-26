@@ -137,8 +137,8 @@ export const PUTER_IMAGE_MODELS: ImageGenModel[] = [
 ];
 
 /**
- * Upload a base64 image to Puter's file system and get a public URL
- * This is needed because Puter's vision API only accepts HTTP URLs, not base64
+ * Upload a base64 image to Puter's file system and get the puter_path
+ * Puter's vision API uses puter_path references, not base64 or HTTP URLs
  */
 async function uploadImageToPuter(base64Data: string, index: number): Promise<string | null> {
   try {
@@ -161,39 +161,19 @@ async function uploadImageToPuter(base64Data: string, index: number): Promise<st
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: mimeType });
 
-    // Generate a unique filename
+    // Generate a unique filename in user's home directory
     const ext = mimeType.split('/')[1] || 'png';
-    const filename = `zurvanex_image_${Date.now()}_${index}.${ext}`;
+    const filename = `zurvanex_vision_${Date.now()}_${index}.${ext}`;
+    const puterPath = `~/${filename}`;
 
-    // Upload to Puter
-    console.log(`[Puter Image] Uploading ${filename} (${(blob.size / 1024).toFixed(1)}KB)...`);
-    const file = await window.puter.fs.write(filename, blob);
+    // Upload to Puter filesystem
+    console.log(`[Puter Image] Uploading ${filename} (${(blob.size / 1024).toFixed(1)}KB) to ${puterPath}...`);
+    await window.puter.fs.write(puterPath, blob);
 
-    // Get the public URL - Puter files are accessible via their URL
-    const publicUrl = `https://puter.site/${file.path || filename}`;
-    console.log(`[Puter Image] Uploaded successfully: ${publicUrl}`);
-
-    return publicUrl;
+    console.log(`[Puter Image] Uploaded successfully to puter_path: ${puterPath}`);
+    return puterPath;
   } catch (error) {
     console.error('[Puter Image] Upload failed:', error);
-    return null;
-  }
-}
-
-/**
- * Convert base64 image to text description using Puter's img2txt
- * Fallback when image upload isn't available
- */
-async function describeImageWithPuter(base64Data: string): Promise<string | null> {
-  try {
-    // Puter's img2txt might accept data URLs or might need a real URL
-    // Try with data URL first
-    console.log('[Puter Vision] Attempting to describe image...');
-    const description = await window.puter.ai.img2txt(base64Data);
-    console.log('[Puter Vision] Image description:', description);
-    return description;
-  } catch (error) {
-    console.error('[Puter Vision] img2txt failed:', error);
     return null;
   }
 }
@@ -370,6 +350,7 @@ export function detectImageGenerationRequest(message: string): {
 
 /**
  * Send message to Puter AI with streaming support
+ * Uses puter_path for vision (images uploaded to Puter filesystem)
  */
 export async function sendPuterMessage(
   messages: Message[],
@@ -401,76 +382,77 @@ export async function sendPuterMessage(
     throw new Error('Could not verify Puter authentication: ' + (authError as Error).message);
   }
 
-  // Collect all images from messages for vision processing
-  const allImages: string[] = [];
-  let imageDescriptions: string[] = [];
+  // Track if we have vision content (for streaming bug workaround)
+  let hasVisionContent = false;
 
-  // First pass: collect all images and try to describe them
+  // Check if model is Claude (streaming bug with vision - Issue #1345)
+  const isClaudeModel = modelId.toLowerCase().includes('claude');
+
+  // Upload images and build puter_path references
+  // Map: original base64 -> puter_path
+  const uploadedImagePaths: Map<string, string> = new Map();
+
+  // First pass: upload all images to Puter filesystem
   for (const msg of messages) {
     if (msg.images && msg.images.length > 0) {
-      for (const imageData of msg.images) {
-        if (imageData.startsWith('data:image/')) {
-          allImages.push(imageData);
+      hasVisionContent = true;
+      for (let i = 0; i < msg.images.length; i++) {
+        const imageData = msg.images[i];
+        if (imageData.startsWith('data:image/') && !uploadedImagePaths.has(imageData)) {
+          const puterPath = await uploadImageToPuter(imageData, uploadedImagePaths.size);
+          if (puterPath) {
+            uploadedImagePaths.set(imageData, puterPath);
+          }
         }
       }
     }
   }
 
-  // If we have images, try to describe them using Puter's img2txt
-  // This is a workaround since Puter's chat API doesn't support base64 images directly
-  if (allImages.length > 0) {
-    console.log(`[Puter Vision] Processing ${allImages.length} images...`);
+  console.log(`[Puter Vision] Uploaded ${uploadedImagePaths.size} images to Puter filesystem`);
 
-    for (let i = 0; i < allImages.length; i++) {
-      try {
-        const description = await describeImageWithPuter(allImages[i]);
-        if (description) {
-          imageDescriptions.push(`[Image ${i + 1} Description: ${description}]`);
-        } else {
-          imageDescriptions.push(`[Image ${i + 1}: Unable to process - image attached but could not be analyzed]`);
-        }
-      } catch (error) {
-        console.error(`[Puter Vision] Failed to describe image ${i + 1}:`, error);
-        imageDescriptions.push(`[Image ${i + 1}: Processing failed]`);
-      }
-    }
-
-    console.log('[Puter Vision] Image descriptions:', imageDescriptions);
-  }
-
-  // Convert messages to Puter format
-  // Puter expects array of {role, content} objects with string content
+  // Convert messages to Puter format with multimodal content
+  // Puter expects: { role, content: [{type: "file", puter_path: "..."}, {type: "text", text: "..."}] }
   const formattedMessages = messages
-    .filter(msg => msg.content && msg.content.trim().length > 0) // Only include messages with content
-    .map((msg, msgIndex) => {
-      let content = msg.content.trim();
+    .filter(msg => (msg.content && msg.content.trim().length > 0) || (msg.images && msg.images.length > 0))
+    .map((msg) => {
+      const hasImages = msg.images && msg.images.length > 0;
 
-      // If this message has images, append the descriptions
-      if (msg.images && msg.images.length > 0) {
-        // Find which descriptions belong to this message
-        let startIndex = 0;
-        for (let i = 0; i < msgIndex; i++) {
-          if (messages[i].images) {
-            startIndex += messages[i].images!.length;
+      if (hasImages) {
+        // Multimodal message with images - use content array format
+        const contentArray: Array<{ type: string; puter_path?: string; text?: string }> = [];
+
+        // Add file references for each image
+        for (const imageData of msg.images!) {
+          const puterPath = uploadedImagePaths.get(imageData);
+          if (puterPath) {
+            contentArray.push({
+              type: 'file',
+              puter_path: puterPath,
+            });
           }
         }
 
-        const relevantDescriptions = imageDescriptions.slice(
-          startIndex,
-          startIndex + msg.images.length
-        );
-
-        if (relevantDescriptions.length > 0) {
-          content = `${content}\n\n${relevantDescriptions.join('\n')}`;
+        // Add text content
+        if (msg.content && msg.content.trim()) {
+          contentArray.push({
+            type: 'text',
+            text: msg.content.trim(),
+          });
         }
 
-        console.log(`[Puter] Message has ${msg.images.length} images, added ${relevantDescriptions.length} descriptions`);
-      }
+        console.log(`[Puter] Message with ${msg.images!.length} images formatted with puter_path references`);
 
-      return {
-        role: msg.role, // 'user' or 'assistant'
-        content
-      };
+        return {
+          role: msg.role,
+          content: contentArray,
+        };
+      } else {
+        // Text-only message - use simple string content
+        return {
+          role: msg.role,
+          content: msg.content.trim(),
+        };
+      }
     });
 
   // Handle system prompt - prepend to first user message
@@ -481,8 +463,21 @@ export async function sendPuterMessage(
       const firstUserIndex = formattedMessages.findIndex(msg => msg.role === 'user');
 
       if (firstUserIndex >= 0) {
-        // Content is always string now - simple prepend
-        formattedMessages[firstUserIndex].content = `${systemPrompt}\n\n${formattedMessages[firstUserIndex].content}`;
+        const firstUserMsg = formattedMessages[firstUserIndex];
+        // Check if content is array (multimodal) or string
+        if (Array.isArray(firstUserMsg.content)) {
+          // Find text element and prepend system prompt
+          const textIndex = firstUserMsg.content.findIndex((c: any) => c.type === 'text');
+          if (textIndex >= 0) {
+            firstUserMsg.content[textIndex].text = `${systemPrompt}\n\n${firstUserMsg.content[textIndex].text}`;
+          } else {
+            // No text element, add one with system prompt
+            firstUserMsg.content.push({ type: 'text', text: systemPrompt });
+          }
+        } else {
+          // Simple string content
+          firstUserMsg.content = `${systemPrompt}\n\n${firstUserMsg.content}`;
+        }
       } else {
         // No user message found, add system prompt as new user message
         formattedMessages.unshift({
@@ -508,12 +503,17 @@ export async function sendPuterMessage(
   }
 
   console.log('Final formatted messages:', JSON.stringify(formattedMessages, null, 2));
-  console.log(`[Puter] Processed ${allImages.length} images with ${imageDescriptions.length} descriptions`);
+  console.log(`[Puter Vision] Uploaded ${uploadedImagePaths.size} images, hasVisionContent: ${hasVisionContent}`);
 
-  // Validate all messages have content (content is always string now)
+  // Validate all messages have content
   for (const msg of formattedMessages) {
-    if (!msg.content || typeof msg.content !== 'string' || msg.content.trim().length === 0) {
+    const content = msg.content;
+    if (!content) {
       throw new Error(`Invalid message format: message missing content. Message: ${JSON.stringify(msg)}`);
+    }
+    // Content can be string or array for multimodal
+    if (typeof content !== 'string' && !Array.isArray(content)) {
+      throw new Error(`Invalid content type: ${typeof content}`);
     }
   }
 
@@ -535,8 +535,16 @@ export async function sendPuterMessage(
     for (const tryModel of fallbackModels) {
       try {
         console.log(`Trying Puter AI with model: ${tryModel}`);
-        
-        if (onChunk) {
+
+        // Check if we need to disable streaming (Claude + vision = streaming bug, Issue #1345)
+        const isCurrentModelClaude = tryModel.toLowerCase().includes('claude');
+        const shouldDisableStreaming = hasVisionContent && isCurrentModelClaude;
+
+        if (shouldDisableStreaming) {
+          console.log('[Puter Vision] Disabling streaming for Claude model with vision (Issue #1345 workaround)');
+        }
+
+        if (onChunk && !shouldDisableStreaming) {
           // Streaming response
           console.log('Requesting streaming response...');
           const stream = await window.puter.ai.chat(formattedMessages as any, {
@@ -645,13 +653,22 @@ export async function sendPuterMessage(
           console.log(`Final fullResponse from model ${tryModel}:`, fullResponse);
           return fullResponse;
         } else {
-          // Non-streaming response
+          // Non-streaming response (or streaming disabled for Claude+vision workaround)
+          console.log('Requesting non-streaming response...');
           const response = await window.puter.ai.chat(formattedMessages as any, {
             model: tryModel,
             stream: false,
           });
 
-          return typeof response === 'string' ? response : '';
+          const responseText = typeof response === 'string' ? response : '';
+
+          // If we had an onChunk callback but disabled streaming, send the full response as one chunk
+          if (onChunk && shouldDisableStreaming && responseText) {
+            console.log('[Puter Vision] Sending non-streamed response to onChunk callback');
+            onChunk(responseText);
+          }
+
+          return responseText;
         }
       } catch (modelError) {
         console.error(`Model ${tryModel} failed:`, modelError);

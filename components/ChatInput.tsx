@@ -29,10 +29,13 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
   const [showAttachMenu, setShowAttachMenu] = useState(false);
   const [fileError, setFileError] = useState<string | null>(null);
   const [pdfjsLib, setPdfjsLib] = useState<any>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragCounter = useRef(0);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
   const documentInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
+  const dropZoneRef = useRef<HTMLDivElement>(null);
 
   const { user } = useAuth();
   const { preferences, updatePreferences } = useUserPreferencesContext();
@@ -386,6 +389,207 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
     }
   };
 
+  // Determine file type from mime type
+  const getFileType = (mimeType: string): 'image' | 'document' | 'video' | null => {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (
+      mimeType === 'application/pdf' ||
+      mimeType === 'text/plain' ||
+      mimeType === 'text/markdown' ||
+      mimeType === 'text/csv' ||
+      mimeType === 'application/json' ||
+      mimeType === 'text/xml' ||
+      mimeType === 'application/xml' ||
+      mimeType === 'text/html' ||
+      mimeType.includes('document') ||
+      mimeType.includes('sheet') ||
+      mimeType.includes('presentation')
+    ) {
+      return 'document';
+    }
+    // Fallback: check file extension for common types
+    return null;
+  };
+
+  // Get file type from extension (fallback)
+  const getFileTypeFromExtension = (filename: string): 'image' | 'document' | 'video' | null => {
+    const ext = filename.split('.').pop()?.toLowerCase();
+    if (!ext) return null;
+
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];
+    const videoExts = ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'];
+    const docExts = ['pdf', 'txt', 'md', 'csv', 'json', 'xml', 'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'log', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'rtf', 'html', 'htm'];
+
+    if (imageExts.includes(ext)) return 'image';
+    if (videoExts.includes(ext)) return 'video';
+    if (docExts.includes(ext)) return 'document';
+    return null;
+  };
+
+  // Handle dropped files
+  const handleDroppedFiles = async (droppedFiles: FileList) => {
+    setFileError(null);
+    const filesToProcess = Array.from(droppedFiles).slice(0, MAX_FILES - files.length);
+
+    // Validate file sizes
+    const oversizedFiles = filesToProcess.filter(f => f.size > MAX_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      setFileError(`Some files exceed 10MB limit: ${oversizedFiles.map(f => f.name).join(', ')}`);
+      return;
+    }
+
+    try {
+      const newFiles: AttachedFile[] = [];
+
+      for (const file of filesToProcess) {
+        if (files.length + newFiles.length >= MAX_FILES) break;
+
+        // Determine file type
+        let fileType = getFileType(file.type);
+        if (!fileType) {
+          fileType = getFileTypeFromExtension(file.name);
+        }
+
+        if (!fileType) {
+          console.warn(`[Drop] Unsupported file type: ${file.name} (${file.type})`);
+          continue;
+        }
+
+        console.log(`[Drop] Processing ${file.name} as ${fileType}`);
+
+        if (fileType === 'video') {
+          const result = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            reader.readAsDataURL(file);
+          });
+
+          newFiles.push({
+            type: 'video',
+            data: result,
+            name: file.name,
+            mimeType: file.type,
+            fileSize: file.size,
+          });
+        } else if (fileType === 'image') {
+          const result = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+            reader.readAsDataURL(file);
+          });
+
+          newFiles.push({
+            type: 'image',
+            data: result,
+            name: file.name,
+            mimeType: file.type,
+            fileSize: file.size,
+          });
+        } else if (fileType === 'document') {
+          // For PDFs: Extract text content
+          if (file.type === 'application/pdf' && pdfjsLib) {
+            try {
+              console.log(`[Drop] Extracting text from PDF: ${file.name}`);
+              const extractedText = await extractPdfText(file);
+
+              newFiles.push({
+                type: 'document',
+                data: '',
+                name: file.name,
+                mimeType: file.type,
+                fileSize: file.size,
+                extractedText: extractedText,
+              });
+              console.log(`[Drop] PDF text extracted: ${file.name} (${extractedText.length} chars)`);
+            } catch (error) {
+              console.error(`[Drop] Failed to extract PDF text from ${file.name}:`, error);
+              // Fallback to base64
+              const result = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target?.result as string);
+                reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+                reader.readAsDataURL(file);
+              });
+
+              newFiles.push({
+                type: 'document',
+                data: result,
+                name: file.name,
+                mimeType: file.type,
+                fileSize: file.size,
+              });
+            }
+          } else {
+            // Non-PDF documents
+            const result = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = (e) => resolve(e.target?.result as string);
+              reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
+              reader.readAsDataURL(file);
+            });
+
+            newFiles.push({
+              type: 'document',
+              data: result,
+              name: file.name,
+              mimeType: file.type,
+              fileSize: file.size,
+            });
+          }
+        }
+      }
+
+      if (newFiles.length > 0) {
+        setFiles((prev) => [...prev, ...newFiles]);
+        console.log(`[Drop] Added ${newFiles.length} files`);
+      }
+    } catch (error) {
+      console.error('[Drop] Error processing files:', error);
+      setFileError(error instanceof Error ? error.message : 'Failed to process dropped files');
+    }
+  };
+
+  // Drag and drop event handlers
+  const handleDragEnter = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current++;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+
+    if (disabled || files.length >= MAX_FILES) return;
+
+    const droppedFiles = e.dataTransfer.files;
+    if (droppedFiles && droppedFiles.length > 0) {
+      await handleDroppedFiles(droppedFiles);
+    }
+  };
+
   // Convert PDF to images (for vision analysis)
   const convertPdfToImages = async (file: File): Promise<AttachedFile[]> => {
     if (!pdfjsLib) {
@@ -477,7 +681,50 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
   };
 
   return (
-    <div className="input-area">
+    <div
+      ref={dropZoneRef}
+      className="input-area"
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDragOver={handleDragOver}
+      onDrop={handleDrop}
+      style={{
+        position: 'relative',
+      }}
+    >
+      {/* Drag overlay */}
+      {isDragging && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(114, 212, 204, 0.1)',
+            border: '2px dashed var(--teal-bright)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+            pointerEvents: 'none',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: '8px',
+              color: 'var(--teal-bright)',
+            }}
+          >
+            <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <span style={{ fontSize: '14px', fontWeight: 500 }}>Drop files here</span>
+            <span style={{ fontSize: '12px', opacity: 0.7 }}>Images, videos, documents (max 10MB each)</span>
+          </div>
+        </div>
+      )}
       {/* File previews - shown above input */}
       {files.length > 0 && (
         <div style={{ marginBottom: '12px', maxWidth: '900px', width: '100%' }}>
