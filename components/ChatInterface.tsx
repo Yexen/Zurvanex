@@ -18,6 +18,7 @@ import { COHERE_MODELS } from '@/lib/cohere';
 import { PUTER_MODELS, sendPuterMessage } from '@/lib/puter';
 import type { Conversation, Message, Model } from '@/types';
 import { useAuth } from '@/hooks/useAuth';
+import { compressImages, needsCompression, formatSize } from '@/utils/imageCompression';
 import { useConversations } from '@/hooks/useConversations';
 import { UserPreferencesProvider, useUserPreferencesContext } from '@/contexts/UserPreferencesContext';
 import { extractionTrigger } from '@/lib/memory/extractionTrigger';
@@ -988,24 +989,38 @@ function ChatInterfaceInner() {
     const isFirstMessage = !conversation || conversation.messages.length === 0;
     const firstUserMessage = content; // Save for title generation later
 
-    // Check if images would exceed Supabase limit (1MB)
+    // Handle image compression for Supabase storage
     let imagesToSave = images;
+    let processedImagesForAI = images; // Keep original for AI models
+    
     if (images && images.length > 0) {
-      const testMessage = {
-        id: Date.now().toString(),
-        role: 'user',
-        content,
-        timestamp: new Date(),
-        images,
-      };
-      const messageSize = JSON.stringify(testMessage).length;
-      const messageSizeMB = messageSize / (1024 * 1024);
-      console.log(`Message size: ${messageSizeMB.toFixed(2)}MB`);
-
-      if (messageSizeMB > 0.9) {
-        console.log('[WARNING] Images too large for Supabase, saving text only');
-        imagesToSave = undefined; // Don't save images to database
-        // Images will still be sent to the model, just not saved in history
+      const messageNeedsCompression = needsCompression(images, content);
+      console.log(`Message size check: ${messageNeedsCompression ? 'needs compression' : 'within limits'}`);
+      
+      if (messageNeedsCompression) {
+        try {
+          console.log('[INFO] Compressing images for Supabase storage...');
+          const compressionResults = await compressImages(images, 700 * 1024); // 700KB per image
+          
+          const compressedImages = compressionResults.map(result => result.compressed);
+          const totalSavings = compressionResults.reduce((acc, result) => 
+            acc + (result.originalSize - result.compressedSize), 0);
+          
+          console.log(`[INFO] Images compressed: ${formatSize(totalSavings)} saved, ` +
+            `${compressionResults.length} images processed`);
+          
+          // Use compressed images for database storage
+          imagesToSave = compressedImages;
+          
+          // Keep original high-quality images for AI models
+          processedImagesForAI = images;
+          
+        } catch (compressionError) {
+          console.error('[ERROR] Image compression failed:', compressionError);
+          console.log('[WARNING] Images too large for Supabase, saving text only');
+          imagesToSave = undefined; // Fallback: don't save images to database
+          processedImagesForAI = images; // Still send to AI models
+        }
       }
     }
 
@@ -1044,9 +1059,16 @@ function ChatInterfaceInner() {
     try {
       // Get updated conversation with the user message
       const updatedConversation = conversations.find((c) => c.id === conversationId);
+      
+      // Create a message with original images for AI models (better quality)
+      const userMessageForAI: Message = {
+        ...userMessage,
+        images: processedImagesForAI, // Use original high-quality images
+      };
+      
       const allMessages = updatedConversation
-        ? [...updatedConversation.messages, userMessage]
-        : [userMessage];
+        ? [...updatedConversation.messages, userMessageForAI]
+        : [userMessageForAI];
 
       // Determine provider based on selected model
       const currentModel = models.find(m => m.id === selectedModel);
