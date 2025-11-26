@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { Model } from '@/types';
+import { usePuterAuth } from '@/hooks/usePuterAuth';
 
 interface ModelSelectorProps {
   models: Model[];
@@ -52,6 +53,9 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  // Puter authentication
+  const { isSignedIn: isPuterSignedIn, isLoading: isPuterLoading, signIn: puterSignIn, user: puterUser } = usePuterAuth();
 
   // Check if no model is selected (sparkle animation should show)
   const showSparkle = !selectedModel;
@@ -333,42 +337,132 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
                   color: '#40E0D0',
                   display: 'flex',
                   alignItems: 'center',
+                  justifyContent: 'space-between',
                   cursor: 'pointer',
                 }}
               >
-                <PuterIcon /> 🔥 Free Models (Puter - No API Key)
-              </div>
-              {expandedSection === 'puter' && puterModels.map((model) => (
-                <div
-                  key={model.id}
-                  ref={(el) => {
-                    if (el) optionRefs.current.set(model.id, el);
-                  }}
-                  onMouseEnter={(e) => handleMouseEnter(model, e.currentTarget)}
-                  onMouseLeave={() => setHoveredModel(null)}
-                  onClick={() => {
-                    onSelectModel(model.id);
-                    setIsOpen(false);
-                    setHoveredModel(null); // Clear tooltip when model is selected
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: model.id === selectedModel ? '#40E0D0' : 'transparent',
-                    color: model.id === selectedModel ? '#000' : 'inherit',
-                    display: 'flex',
-                    alignItems: 'center',
-                  }}
-                  className="hover:bg-[var(--hover-bg)]"
-                >
-                  <span>
-                    {model.name}
-                    {model.contextWindow && ` [${formatContextWindow(model.contextWindow)}]`}
+                <span style={{ display: 'flex', alignItems: 'center' }}>
+                  <PuterIcon /> 🔥 Free Models (Puter)
+                </span>
+                {/* Puter connection status */}
+                {isPuterLoading ? (
+                  <span style={{ fontSize: '10px', opacity: 0.7 }}>Checking...</span>
+                ) : isPuterSignedIn ? (
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      background: 'rgba(34, 197, 94, 0.2)',
+                      color: '#22c55e',
+                      padding: '2px 6px',
+                      borderRadius: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                    }}
+                  >
+                    <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#22c55e' }} />
+                    {puterUser?.username || 'Connected'}
                   </span>
-                  {model.hasThinkingMode && <BrainIcon />}
-                  {model.supportsVision && <EyeIcon />}
-                </div>
-              ))}
+                ) : (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      puterSignIn();
+                    }}
+                    style={{
+                      fontSize: '10px',
+                      background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                      color: 'white',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontWeight: '500',
+                    }}
+                  >
+                    Connect
+                  </button>
+                )}
+              </div>
+              {expandedSection === 'puter' && (
+                <>
+                  {/* Show login prompt if not signed in */}
+                  {!isPuterSignedIn && !isPuterLoading && (
+                    <div
+                      style={{
+                        padding: '12px',
+                        background: 'rgba(99, 102, 241, 0.1)',
+                        borderBottom: '1px solid rgba(99, 102, 241, 0.2)',
+                      }}
+                    >
+                      <p style={{ fontSize: '11px', marginBottom: '8px', opacity: 0.9 }}>
+                        Connect your Puter account to use free AI models (GPT-4o, Claude, Gemini, etc.)
+                      </p>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          puterSignIn();
+                        }}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontWeight: '500',
+                          fontSize: '12px',
+                        }}
+                      >
+                        Sign in to Puter (Free)
+                      </button>
+                    </div>
+                  )}
+                  {puterModels.map((model) => (
+                    <div
+                      key={model.id}
+                      ref={(el) => {
+                        if (el) optionRefs.current.set(model.id, el);
+                      }}
+                      onMouseEnter={(e) => handleMouseEnter(model, e.currentTarget)}
+                      onMouseLeave={() => setHoveredModel(null)}
+                      onClick={() => {
+                        if (!isPuterSignedIn) {
+                          // Prompt login if selecting Puter model while not signed in
+                          puterSignIn();
+                          return;
+                        }
+                        onSelectModel(model.id);
+                        setIsOpen(false);
+                        setHoveredModel(null);
+                      }}
+                      style={{
+                        padding: '8px 12px',
+                        cursor: 'pointer',
+                        background: model.id === selectedModel ? '#40E0D0' : 'transparent',
+                        color: model.id === selectedModel ? '#000' : 'inherit',
+                        display: 'flex',
+                        alignItems: 'center',
+                        opacity: isPuterSignedIn ? 1 : 0.6,
+                      }}
+                      className="hover:bg-[var(--hover-bg)]"
+                    >
+                      <span>
+                        {model.name}
+                        {model.contextWindow && ` [${formatContextWindow(model.contextWindow)}]`}
+                      </span>
+                      {model.hasThinkingMode && <BrainIcon />}
+                      {model.supportsVision && <EyeIcon />}
+                      {!isPuterSignedIn && (
+                        <span style={{ marginLeft: 'auto', fontSize: '10px', color: '#a5b4fc' }}>
+                          Login required
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </>
+              )}
             </div>
           )}
 
