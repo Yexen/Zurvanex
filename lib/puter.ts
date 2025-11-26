@@ -159,22 +159,59 @@ async function uploadImageToPuter(base64Data: string, index: number): Promise<st
       byteNumbers[i] = byteCharacters.charCodeAt(i);
     }
     const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: mimeType });
 
-    // Generate a unique filename in user's home directory
+    // Generate a unique filename
     const ext = mimeType.split('/')[1] || 'png';
     const filename = `zurvanex_vision_${Date.now()}_${index}.${ext}`;
-    const puterPath = `~/${filename}`;
 
-    // Upload to Puter filesystem
-    console.log(`[Puter Image] Uploading ${filename} (${(blob.size / 1024).toFixed(1)}KB) to ${puterPath}...`);
-    await window.puter.fs.write(puterPath, blob);
+    console.log(`[Puter Image] Uploading ${filename} (${(byteArray.length / 1024).toFixed(1)}KB)...`);
 
-    console.log(`[Puter Image] Uploaded successfully to puter_path: ${puterPath}`);
+    // Create a File object (more reliable than Blob for Puter)
+    const file = new File([byteArray], filename, { type: mimeType });
+
+    let uploadResult: any;
+    let puterPath: string;
+
+    try {
+      // Try puter.fs.write with createMissingParents option
+      uploadResult = await window.puter.fs.write(filename, file, {
+        overwrite: true,
+        createMissingParents: true,
+      });
+      puterPath = uploadResult?.path || filename;
+      console.log(`[Puter Image] fs.write result:`, uploadResult);
+    } catch (writeError: any) {
+      console.log(`[Puter Image] fs.write failed:`, writeError?.message || writeError);
+
+      // Try puter.fs.upload as fallback
+      try {
+        console.log(`[Puter Image] Trying fs.upload...`);
+        // @ts-ignore - puter.fs.upload might not be in types
+        const fsAny = window.puter.fs as any;
+        if (fsAny.upload) {
+          uploadResult = await fsAny.upload([file]);
+          // upload returns an array
+          const uploadedFile = Array.isArray(uploadResult) ? uploadResult[0] : uploadResult;
+          puterPath = uploadedFile?.path || filename;
+          console.log(`[Puter Image] fs.upload result:`, uploadResult);
+        } else {
+          throw new Error('puter.fs.upload not available');
+        }
+      } catch (uploadError: any) {
+        console.log(`[Puter Image] fs.upload failed:`, uploadError?.message || uploadError);
+        throw uploadError;
+      }
+    }
+
+    console.log(`[Puter Image] Uploaded successfully, puter_path: ${puterPath}`);
     return puterPath;
   } catch (error) {
-    console.error('[Puter Image] Upload failed:', error);
-    return null;
+    console.error('[Puter Image] All upload methods failed:', error);
+
+    // Final fallback: return the base64 data URL directly
+    // Some Puter models may accept data URLs
+    console.log('[Puter Image] Returning base64 data URL as fallback');
+    return base64Data;
   }
 }
 
@@ -442,16 +479,28 @@ export async function sendPuterMessage(
 
       if (hasImages) {
         // Multimodal message with images - use content array format
-        const contentArray: Array<{ type: string; puter_path?: string; text?: string }> = [];
+        const contentArray: Array<{ type: string; puter_path?: string; url?: string; text?: string }> = [];
 
         // Add file references for each image
         for (const imageData of msg.images!) {
-          const puterPath = uploadedImagePaths.get(imageData);
-          if (puterPath) {
-            contentArray.push({
-              type: 'file',
-              puter_path: puterPath,
-            });
+          const uploadedPath = uploadedImagePaths.get(imageData);
+          if (uploadedPath) {
+            // Check if it's a puter_path or a base64 data URL (fallback)
+            if (uploadedPath.startsWith('data:')) {
+              // Base64 fallback - use url type
+              contentArray.push({
+                type: 'image_url',
+                url: uploadedPath,
+              });
+              console.log(`[Puter] Using base64 data URL for image`);
+            } else {
+              // Puter filesystem path
+              contentArray.push({
+                type: 'file',
+                puter_path: uploadedPath,
+              });
+              console.log(`[Puter] Using puter_path: ${uploadedPath}`);
+            }
           }
         }
 
@@ -463,7 +512,7 @@ export async function sendPuterMessage(
           });
         }
 
-        console.log(`[Puter] Message with ${msg.images!.length} images formatted with puter_path references`);
+        console.log(`[Puter] Message with ${msg.images!.length} images formatted`);
 
         return {
           role: msg.role,
