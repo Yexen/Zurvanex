@@ -9,6 +9,7 @@ import ModelSelector from './ModelSelector';
 import Login from './Login';
 import SaveMomentModal from './SaveMomentModal';
 import FloatingMemoryPopup from './FloatingMemoryPopup';
+import GuidelinesModal from './GuidelinesModal';
 import { sendMessage, getAvailableModels, generateTitle } from '@/lib/lmstudio';
 import { GROQ_MODELS } from '@/lib/groq';
 import { OPENROUTER_MODELS } from '@/lib/openrouter';
@@ -60,6 +61,8 @@ function ChatInterfaceInner() {
   const [selectedImageModel, setSelectedImageModel] = useState<string>('gpt-image-1-mini');
   const [imageGenQuality, setImageGenQuality] = useState<'high' | 'medium' | 'low' | 'hd' | 'standard'>('medium');
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  // Guidelines modal state
+  const [isGuidelinesOpen, setIsGuidelinesOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const hasInitialized = useRef(false);
@@ -1583,11 +1586,42 @@ function ChatInterfaceInner() {
           <div className="chat-title">
             {activeConversation?.title || 'New Conversation'}
           </div>
-          <ModelSelector
-            models={models}
-            selectedModel={selectedModel}
-            onSelectModel={setSelectedModel}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Help Button */}
+            <button
+              onClick={() => setIsGuidelinesOpen(true)}
+              style={{
+                background: 'rgba(114, 212, 204, 0.1)',
+                border: '1px solid rgba(114, 212, 204, 0.3)',
+                borderRadius: '8px',
+                padding: '8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--teal-bright)',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(114, 212, 204, 0.2)';
+                e.currentTarget.style.borderColor = 'var(--teal-bright)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(114, 212, 204, 0.1)';
+                e.currentTarget.style.borderColor = 'rgba(114, 212, 204, 0.3)';
+              }}
+              title="Help & Commands"
+            >
+              <svg width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+            <ModelSelector
+              models={models}
+              selectedModel={selectedModel}
+              onSelectModel={setSelectedModel}
+            />
+          </div>
         </div>
 
         {/* Messages */}
@@ -1826,6 +1860,12 @@ function ChatInterfaceInner() {
       <FloatingMemoryPopup
         isOpen={isMemoryPopupOpen}
         onClose={() => setIsMemoryPopupOpen(false)}
+      />
+
+      {/* Guidelines & Help Modal */}
+      <GuidelinesModal
+        isOpen={isGuidelinesOpen}
+        onClose={() => setIsGuidelinesOpen(false)}
       />
     </div>
   );
