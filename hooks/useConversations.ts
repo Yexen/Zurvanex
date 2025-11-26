@@ -46,13 +46,29 @@ export function useConversations(userId: string | null) {
           id: row.id,
           title: row.title,
           messages: Array.isArray(row.messages)
-            ? (row.messages as any[]).map((msg: any) => ({
-                id: msg.id,
-                role: msg.role,
-                content: msg.content,
-                timestamp: new Date(msg.timestamp),
-                images: msg.images,
-              }))
+            ? (row.messages as any[]).map((msg: any) => {
+                // Debug: log messages with images
+                if (msg.images && msg.images.length > 0) {
+                  console.log('[useConversations] Message with images loaded:', {
+                    msgId: msg.id,
+                    role: msg.role,
+                    imageCount: msg.images.length,
+                    images: msg.images.map((img: any, i: number) => ({
+                      index: i,
+                      type: typeof img,
+                      prefix: typeof img === 'string' ? img.substring(0, 80) : JSON.stringify(img).substring(0, 80),
+                      length: typeof img === 'string' ? img.length : 'N/A',
+                    })),
+                  });
+                }
+                return {
+                  id: msg.id,
+                  role: msg.role,
+                  content: msg.content,
+                  timestamp: new Date(msg.timestamp),
+                  images: msg.images,
+                };
+              })
             : [],
           createdAt: new Date(row.created_at),
           updatedAt: new Date(row.updated_at),
@@ -270,6 +286,21 @@ export function useConversations(userId: string | null) {
         timestamp: message.timestamp.toISOString(),
         ...(message.images && message.images.length > 0 && { images: message.images }),
       };
+
+      // Debug: log when storing message with images
+      if (message.images && message.images.length > 0) {
+        console.log('[useConversations] Storing message with images:', {
+          msgId: message.id,
+          role: message.role,
+          imageCount: message.images.length,
+          images: message.images.map((img: any, i: number) => ({
+            index: i,
+            type: typeof img,
+            prefix: typeof img === 'string' ? img.substring(0, 80) : JSON.stringify(img).substring(0, 80),
+            length: typeof img === 'string' ? img.length : 'N/A',
+          })),
+        });
+      }
 
       // Append to existing messages
       const updatedMessages = [...(Array.isArray(current.messages) ? current.messages : []), cleanMessage];

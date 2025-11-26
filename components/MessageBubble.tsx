@@ -113,31 +113,71 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
 
   // Parse attached files from base64 data URLs or HTTP URLs
   const files: FilePreview[] = message.images
-    ? message.images.map((data, idx) => {
+    ? message.images.map((rawData, idx) => {
         let mimeType = '';
         let isImage = false;
-        let extension = 'file';
+        let extension = 'png';
 
-        // Debug: log the data prefix
-        console.log(`[MessageBubble] Image ${idx + 1} data prefix:`, data?.substring(0, 50));
-        console.log(`[MessageBubble] Image ${idx + 1} length:`, data?.length);
-
-        // Check if it's a data URL
-        if (data && data.startsWith('data:')) {
-          mimeType = data.split(';')[0].split(':')[1] || '';
-          isImage = mimeType.startsWith('image/');
-          extension = mimeType.split('/')[1] || 'png';
-          console.log(`[MessageBubble] Detected data URL - mimeType: ${mimeType}, isImage: ${isImage}`);
+        // Handle case where data might be stored as object or undefined
+        let data: string = '';
+        if (typeof rawData === 'string') {
+          data = rawData;
+        } else if (rawData && typeof rawData === 'object') {
+          // Handle object format - might have src, url, or data property
+          const obj = rawData as any;
+          data = obj.src || obj.url || obj.data || '';
+          console.log(`[MessageBubble] Image ${idx + 1} was object, extracted:`, data?.substring(0, 50));
         }
-        // Check if it's an HTTP URL (likely an image from generation)
+
+        // Debug: log the data details
+        console.log(`[MessageBubble] Image ${idx + 1}:`, {
+          rawType: typeof rawData,
+          dataType: typeof data,
+          prefix: data?.substring(0, 80),
+          length: data?.length,
+          startsWithData: data?.startsWith('data:'),
+          startsWithHttp: data?.startsWith('http'),
+        });
+
+        // Check if it's a data URL (base64 encoded)
+        if (data && data.startsWith('data:')) {
+          // Extract mime type from data URL: data:image/png;base64,...
+          const mimeMatch = data.match(/^data:([^;,]+)/);
+          if (mimeMatch) {
+            mimeType = mimeMatch[1];
+            isImage = mimeType.startsWith('image/');
+            // Extract extension from mime type
+            const extMatch = mimeType.match(/\/([a-zA-Z0-9]+)/);
+            extension = extMatch ? extMatch[1] : 'png';
+          } else {
+            // Fallback for malformed data URLs that still might be images
+            isImage = data.includes('image/') || data.startsWith('data:image');
+            extension = 'png';
+          }
+          console.log(`[MessageBubble] Detected data URL - mimeType: ${mimeType}, isImage: ${isImage}, ext: ${extension}`);
+        }
+        // Check if it's an HTTP/HTTPS URL (image from generation or external source)
         else if (data && (data.startsWith('http://') || data.startsWith('https://'))) {
-          // Assume HTTP URLs are images (from image generation)
+          // Assume HTTP URLs are images (from image generation APIs)
           isImage = true;
           // Try to get extension from URL
           const urlMatch = data.match(/\.([a-zA-Z0-9]+)(?:\?|$)/);
-          extension = urlMatch ? urlMatch[1] : 'png';
+          if (urlMatch && ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'].includes(urlMatch[1].toLowerCase())) {
+            extension = urlMatch[1].toLowerCase();
+          } else {
+            extension = 'png'; // Default for generated images
+          }
           mimeType = `image/${extension}`;
           console.log(`[MessageBubble] Detected HTTP URL - extension: ${extension}`);
+        }
+        // Check for base64 string without data: prefix (raw base64)
+        else if (data && /^[A-Za-z0-9+/=]+$/.test(data.substring(0, 100)) && data.length > 100) {
+          // Likely raw base64 - convert to data URL
+          isImage = true;
+          extension = 'png';
+          mimeType = 'image/png';
+          data = `data:image/png;base64,${data}`;
+          console.log(`[MessageBubble] Detected raw base64, converted to data URL`);
         }
         // Check for common image patterns in the data
         else if (data && (data.includes('image/') || /\.(png|jpg|jpeg|gif|webp|svg)/i.test(data))) {
@@ -145,8 +185,10 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
           extension = 'png';
           mimeType = 'image/png';
           console.log(`[MessageBubble] Detected image pattern in data`);
+        } else if (data) {
+          console.log(`[MessageBubble] Unknown data format, treating as document. First 100 chars:`, data.substring(0, 100));
         } else {
-          console.log(`[MessageBubble] Unknown data format, treating as document`);
+          console.log(`[MessageBubble] Empty or undefined data for image ${idx + 1}`);
         }
 
         const name = isImage ? `Image ${idx + 1}.${extension}` : `File ${idx + 1}.${extension}`;
