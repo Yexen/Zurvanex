@@ -239,6 +239,16 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
         ...documentFiles.filter(f => !f.extractedText && f.data).map(f => f.data),
       ].filter(Boolean);
 
+      // Debug logging for file attachments
+      console.log('[ChatInput] Sending message with files:', {
+        imageCount: imageFiles.length,
+        videoCount: videoFiles.length,
+        documentCount: documentFiles.length,
+        allMediaDataCount: allMediaData.length,
+        imageDataLengths: imageFiles.map(f => f.data?.length || 0),
+        imageDataPrefixes: imageFiles.map(f => f.data?.substring(0, 30) || 'no data'),
+      });
+
       onSend(fullMessage, allMediaData.length > 0 ? allMediaData : undefined);
       handleMessageChange('');
       setFiles([]);
@@ -297,7 +307,14 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
           // Regular image processing with FileReader
           const result = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (e) => resolve(e.target?.result as string);
+            reader.onload = (e) => {
+              const data = e.target?.result as string;
+              console.log(`[ChatInput] Image read successfully: ${file.name}`, {
+                dataLength: data?.length || 0,
+                prefix: data?.substring(0, 50) || 'no data',
+              });
+              resolve(data);
+            };
             reader.onerror = () => reject(new Error(`Failed to read file: ${file.name}`));
             reader.readAsDataURL(file);
           });
@@ -309,6 +326,7 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
             mimeType: file.type,
             fileSize: file.size,
           });
+          console.log(`[ChatInput] Image added to files array: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`);
         } else if (type === 'document') {
           // For PDFs: Extract text content so AI can read it
           // For other documents: Keep as base64

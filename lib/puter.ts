@@ -394,21 +394,44 @@ export async function sendPuterMessage(
 
   // First pass: upload all images to Puter filesystem
   for (const msg of messages) {
+    console.log(`[Puter Vision] Checking message:`, {
+      role: msg.role,
+      hasImages: !!(msg.images && msg.images.length > 0),
+      imageCount: msg.images?.length || 0,
+      contentPreview: msg.content?.substring(0, 50),
+    });
+
     if (msg.images && msg.images.length > 0) {
       hasVisionContent = true;
       for (let i = 0; i < msg.images.length; i++) {
         const imageData = msg.images[i];
-        if (imageData.startsWith('data:image/') && !uploadedImagePaths.has(imageData)) {
+        const isImage = imageData.startsWith('data:image/');
+        const isVideo = imageData.startsWith('data:video/');
+        const dataPrefix = imageData.substring(0, 30);
+
+        console.log(`[Puter Vision] Image ${i + 1}:`, {
+          isImage,
+          isVideo,
+          dataPrefix,
+          alreadyUploaded: uploadedImagePaths.has(imageData),
+        });
+
+        if (isImage && !uploadedImagePaths.has(imageData)) {
           const puterPath = await uploadImageToPuter(imageData, uploadedImagePaths.size);
           if (puterPath) {
             uploadedImagePaths.set(imageData, puterPath);
+            console.log(`[Puter Vision] Successfully mapped image to: ${puterPath}`);
+          } else {
+            console.error(`[Puter Vision] Failed to upload image ${i + 1}`);
           }
+        } else if (isVideo) {
+          console.log(`[Puter Vision] Skipping video file - vision API doesn't support video`);
         }
       }
     }
   }
 
-  console.log(`[Puter Vision] Uploaded ${uploadedImagePaths.size} images to Puter filesystem`);
+  console.log(`[Puter Vision] Upload complete: ${uploadedImagePaths.size} images uploaded, hasVisionContent: ${hasVisionContent}`);
 
   // Convert messages to Puter format with multimodal content
   // Puter expects: { role, content: [{type: "file", puter_path: "..."}, {type: "text", text: "..."}] }
@@ -502,8 +525,17 @@ export async function sendPuterMessage(
     });
   }
 
-  console.log('Final formatted messages:', JSON.stringify(formattedMessages, null, 2));
-  console.log(`[Puter Vision] Uploaded ${uploadedImagePaths.size} images, hasVisionContent: ${hasVisionContent}`);
+  console.log('[Puter Vision] Final formatted messages:', JSON.stringify(formattedMessages, null, 2));
+  console.log(`[Puter Vision] Summary: ${uploadedImagePaths.size} images uploaded, hasVisionContent: ${hasVisionContent}`);
+
+  // Log each message's content structure for debugging
+  formattedMessages.forEach((msg, idx) => {
+    console.log(`[Puter Vision] Message ${idx + 1} (${msg.role}):`, {
+      isArray: Array.isArray(msg.content),
+      contentType: typeof msg.content,
+      fileCount: Array.isArray(msg.content) ? msg.content.filter((c: any) => c.type === 'file').length : 0,
+    });
+  });
 
   // Validate all messages have content
   for (const msg of formattedMessages) {
