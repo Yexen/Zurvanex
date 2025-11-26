@@ -134,104 +134,135 @@ export async function sendPuterMessage(
     console.log('Calling Puter AI with model:', modelId);
     console.log('Formatted messages:', formattedMessages);
 
-    if (onChunk) {
-      // Streaming response
-      console.log('Requesting streaming response...');
-      const stream = await window.puter.ai.chat(formattedMessages as any, {
-        model: modelId,
-        stream: true,
-      });
+    // List of fallback models to try in order
+    const fallbackModels = [
+      modelId, // Try the requested model first
+      'gpt-4o', // Reliable fallback
+      'claude-sonnet-4-5', // Another fallback
+      'gemini-2.5-flash', // Third fallback
+      'gpt-3.5-turbo', // Last resort
+    ].filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
 
-      console.log('Stream received:', typeof stream, stream?.constructor?.name);
-      console.log('Is ReadableStream?', stream instanceof ReadableStream);
-      console.log('Is AsyncGenerator?', stream?.constructor?.name === 'AsyncGenerator');
+    let lastError: Error | null = null;
+    
+    for (const tryModel of fallbackModels) {
+      try {
+        console.log(`Trying Puter AI with model: ${tryModel}`);
+        
+        if (onChunk) {
+          // Streaming response
+          console.log('Requesting streaming response...');
+          const stream = await window.puter.ai.chat(formattedMessages as any, {
+            model: tryModel,
+            stream: true,
+          });
 
-      let fullResponse = '';
+          console.log('Stream received:', typeof stream, stream?.constructor?.name);
+          console.log('Is ReadableStream?', stream instanceof ReadableStream);
+          console.log('Is AsyncGenerator?', stream?.constructor?.name === 'AsyncGenerator');
 
-      // Check if it's an AsyncGenerator (Puter's format)
-      // TypeScript type guard for async iterables
-      const isAsyncIterable = (obj: any): obj is AsyncIterable<any> => {
-        return obj && typeof obj[Symbol.asyncIterator] === 'function';
-      };
+          let fullResponse = '';
 
-      if (isAsyncIterable(stream)) {
-        console.log('Processing AsyncGenerator...');
-        let chunkCount = 0;
+          // Check if it's an AsyncGenerator (Puter's format)
+          // TypeScript type guard for async iterables
+          const isAsyncIterable = (obj: any): obj is AsyncIterable<any> => {
+            return obj && typeof obj[Symbol.asyncIterator] === 'function';
+          };
 
-        try {
-          for await (const chunk of stream) {
-            console.log(`Chunk ${chunkCount++}:`, typeof chunk, chunk);
+          if (isAsyncIterable(stream)) {
+            console.log('Processing AsyncGenerator...');
+            let chunkCount = 0;
 
-            let content = '';
+            try {
+              for await (const chunk of stream) {
+                console.log(`Chunk ${chunkCount++}:`, typeof chunk, chunk);
 
-            // Puter sends chunks as objects with type and text fields
-            if (typeof chunk === 'object' && chunk !== null) {
-              // Handle {type: "text", text: "..."} format
-              if (chunk.type === 'text' && chunk.text) {
-                content = chunk.text;
+                let content = '';
+
+                // Puter sends chunks as objects with type and text fields
+                if (typeof chunk === 'object' && chunk !== null) {
+                  // Handle {type: "text", text: "..."} format
+                  if (chunk.type === 'text' && chunk.text) {
+                    content = chunk.text;
+                  }
+                  // Handle {content: "..."} format
+                  else if (chunk.content) {
+                    content = chunk.content;
+                  }
+                  // Skip extra_content chunks (metadata like thought_signature)
+                  else if (chunk.type === 'extra_content') {
+                    console.log('Skipping extra_content chunk');
+                    continue;
+                  }
+                }
+                // Handle plain string chunks
+                else if (typeof chunk === 'string') {
+                  content = chunk;
+                }
+
+                if (content) {
+                  fullResponse += content;
+                  onChunk(content);
+                }
               }
-              // Handle {content: "..."} format
-              else if (chunk.content) {
-                content = chunk.content;
-              }
-              // Skip extra_content chunks (metadata like thought_signature)
-              else if (chunk.type === 'extra_content') {
-                console.log('Skipping extra_content chunk');
-                continue;
-              }
+              console.log('AsyncGenerator complete. Total response length:', fullResponse.length);
+            } catch (streamError) {
+              console.error('Error reading AsyncGenerator:', streamError);
+              throw streamError;
             }
-            // Handle plain string chunks
-            else if (typeof chunk === 'string') {
-              content = chunk;
-            }
+          } else if (stream instanceof ReadableStream) {
+            console.log('Processing ReadableStream...');
+            const reader = stream.getReader();
+            const decoder = new TextDecoder();
 
-            if (content) {
-              fullResponse += content;
-              onChunk(content);
+            let chunkCount = 0;
+            while (true) {
+              const { done, value } = await reader.read();
+              console.log(`Chunk ${chunkCount++}:`, { done, valueType: typeof value, valueLength: value?.length });
+
+              if (done) {
+                console.log('Stream complete. Total response length:', fullResponse.length);
+                break;
+              }
+
+              const chunk = decoder.decode(value, { stream: true });
+              console.log('Decoded chunk:', chunk);
+              fullResponse += chunk;
+              onChunk(chunk);
             }
+          } else {
+            console.warn('Stream is not a recognized format, treating as direct response');
+            fullResponse = typeof stream === 'string' ? stream : JSON.stringify(stream);
+            onChunk(fullResponse);
           }
-          console.log('AsyncGenerator complete. Total response length:', fullResponse.length);
-        } catch (streamError) {
-          console.error('Error reading AsyncGenerator:', streamError);
-          throw streamError;
+
+          console.log(`Final fullResponse from model ${tryModel}:`, fullResponse);
+          return fullResponse;
+        } else {
+          // Non-streaming response
+          const response = await window.puter.ai.chat(formattedMessages as any, {
+            model: tryModel,
+            stream: false,
+          });
+
+          return typeof response === 'string' ? response : '';
         }
-      } else if (stream instanceof ReadableStream) {
-        console.log('Processing ReadableStream...');
-        const reader = stream.getReader();
-        const decoder = new TextDecoder();
-
-        let chunkCount = 0;
-        while (true) {
-          const { done, value } = await reader.read();
-          console.log(`Chunk ${chunkCount++}:`, { done, valueType: typeof value, valueLength: value?.length });
-
-          if (done) {
-            console.log('Stream complete. Total response length:', fullResponse.length);
-            break;
-          }
-
-          const chunk = decoder.decode(value, { stream: true });
-          console.log('Decoded chunk:', chunk);
-          fullResponse += chunk;
-          onChunk(chunk);
+      } catch (modelError) {
+        console.error(`Model ${tryModel} failed:`, modelError);
+        lastError = modelError instanceof Error ? modelError : new Error(String(modelError));
+        
+        // If this is the last model to try, we'll throw the error after the loop
+        if (tryModel === fallbackModels[fallbackModels.length - 1]) {
+          break;
         }
-      } else {
-        console.warn('Stream is not a recognized format, treating as direct response');
-        fullResponse = typeof stream === 'string' ? stream : JSON.stringify(stream);
-        onChunk(fullResponse);
+        
+        // Continue to next model
+        continue;
       }
-
-      console.log('Final fullResponse:', fullResponse);
-      return fullResponse;
-    } else {
-      // Non-streaming response
-      const response = await window.puter.ai.chat(formattedMessages as any, {
-        model: modelId,
-        stream: false,
-      });
-
-      return typeof response === 'string' ? response : '';
     }
+    
+    // If we get here, all models failed
+    throw lastError || new Error('All Puter AI models failed');
   } catch (error) {
     console.error('Puter AI error details:', error);
     console.error('Model ID that failed:', modelId);
@@ -268,20 +299,11 @@ export async function sendPuterMessage(
  * Model IDs must match Puter's exact naming convention
  */
 export const PUTER_MODELS = [
-  // TIER S - Best Overall (Direct Puter Access)
+  // TIER S - Most Reliable Models First
   {
-    id: 'gemini-3-pro-preview',
-    name: 'Gemini 3 Pro Preview (Free)',
-    description: '🔥 Latest Gemini - Record 1501 Elo, best multimodal',
-    contextWindow: 2000000,
-    hasThinkingMode: false,
-    supportsVision: true,
-    isFree: true,
-  },
-  {
-    id: 'gpt-5.1',
-    name: 'GPT-5.1 (Free)',
-    description: 'Latest OpenAI update - improved reasoning',
+    id: 'gpt-4o',
+    name: 'GPT-4o (Free)',
+    description: '✅ Reliable, fast, general purpose - best fallback',
     contextWindow: 128000,
     hasThinkingMode: false,
     supportsVision: true,
@@ -290,9 +312,46 @@ export const PUTER_MODELS = [
   {
     id: 'claude-sonnet-4-5',
     name: 'Claude Sonnet 4.5 (Free)',
-    description: 'Top reasoning, coding, writing',
+    description: '✅ Top reasoning, coding, writing',
     contextWindow: 200000,
     hasThinkingMode: true,
+    supportsVision: true,
+    isFree: true,
+  },
+  {
+    id: 'gemini-2.5-flash',
+    name: 'Gemini 2.5 Flash (Free)',
+    description: '✅ Fast, multimodal, balanced',
+    contextWindow: 1000000,
+    hasThinkingMode: false,
+    supportsVision: true,
+    isFree: true,
+  },
+  {
+    id: 'gpt-3.5-turbo',
+    name: 'GPT-3.5 Turbo (Free)',
+    description: '✅ Reliable fallback model',
+    contextWindow: 16384,
+    hasThinkingMode: false,
+    supportsVision: false,
+    isFree: true,
+  },
+  // TIER A - Experimental/Preview Models
+  {
+    id: 'gemini-3-pro-preview',
+    name: 'Gemini 3 Pro Preview (Free)',
+    description: '🧪 Latest Gemini - may be unstable',
+    contextWindow: 2000000,
+    hasThinkingMode: false,
+    supportsVision: true,
+    isFree: true,
+  },
+  {
+    id: 'gpt-5.1',
+    name: 'GPT-5.1 (Free)',
+    description: '🧪 Latest OpenAI - may be unstable',
+    contextWindow: 128000,
+    hasThinkingMode: false,
     supportsVision: true,
     isFree: true,
   },
