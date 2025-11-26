@@ -56,6 +56,22 @@ export default function MemoryPanel() {
     currentItem: '',
     status: 'importing'
   });
+  const [batchProgress, setBatchProgress] = useState<{
+    isProcessing: boolean;
+    operation: 'delete' | 'move' | null;
+    current: number;
+    total: number;
+    currentItem: string;
+    status: 'processing' | 'success' | 'error';
+    message?: string;
+  }>({
+    isProcessing: false,
+    operation: null,
+    current: 0,
+    total: 0,
+    currentItem: '',
+    status: 'processing'
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const zipInputRef = useRef<HTMLInputElement>(null);
 
@@ -442,14 +458,33 @@ export default function MemoryPanel() {
     const confirmed = confirm(`Delete ${selectedItems.size} selected items? This action cannot be undone.`);
     if (!confirmed) return;
 
+    setBatchProgress({
+      isProcessing: true,
+      operation: 'delete',
+      current: 0,
+      total: selectedItems.size,
+      currentItem: 'Starting deletion...',
+      status: 'processing'
+    });
+
     let deleted = 0;
     let failed = 0;
+    const itemsArray = Array.from(selectedItems);
 
-    for (const itemId of selectedItems) {
+    for (const itemId of itemsArray) {
       try {
         // Check if it's a folder or memory
         const isFolder = folders.some(f => f.id === itemId);
+        const memory = memories.find(m => m.id === itemId);
+        const folder = folders.find(f => f.id === itemId);
+        const itemName = isFolder ? folder?.name : memory?.title;
         const type = isFolder ? 'folder' : 'memory';
+
+        setBatchProgress(prev => ({
+          ...prev,
+          current: deleted + failed + 1,
+          currentItem: `Deleting: ${itemName || 'Unknown'}`
+        }));
 
         if (type === 'folder') {
           if (isSupabaseAvailable() && user?.id) {
@@ -472,10 +507,23 @@ export default function MemoryPanel() {
       }
     }
 
-    alert(`✅ Deleted ${deleted} items${failed > 0 ? `, ${failed} failed` : ''}`);
+    setBatchProgress({
+      isProcessing: false,
+      operation: 'delete',
+      current: deleted,
+      total: selectedItems.size,
+      currentItem: 'Deletion complete!',
+      status: failed > 0 ? 'error' : 'success',
+      message: `Deleted ${deleted} items${failed > 0 ? `, ${failed} failed` : ''}`
+    });
+
     setSelectedItems(new Set());
     await loadData();
-  }, [selectedItems, folders, user?.id]);
+
+    setTimeout(() => {
+      setBatchProgress(prev => ({ ...prev, isProcessing: false, message: undefined }));
+    }, 2000);
+  }, [selectedItems, folders, memories, user?.id]);
 
   const handleBatchMove = useCallback(async () => {
     if (selectedItems.size === 0) return;
@@ -487,13 +535,32 @@ export default function MemoryPanel() {
     if (targetFolderId === null) return; // User cancelled
     const targetId = targetFolderId.trim() || null;
 
+    setBatchProgress({
+      isProcessing: true,
+      operation: 'move',
+      current: 0,
+      total: selectedItems.size,
+      currentItem: 'Starting move...',
+      status: 'processing'
+    });
+
     let moved = 0;
     let failed = 0;
+    const itemsArray = Array.from(selectedItems);
 
-    for (const itemId of selectedItems) {
+    for (const itemId of itemsArray) {
       try {
         const isFolder = folders.some(f => f.id === itemId);
+        const memory = memories.find(m => m.id === itemId);
+        const folder = folders.find(f => f.id === itemId);
+        const itemName = isFolder ? folder?.name : memory?.title;
         const type = isFolder ? 'folder' : 'memory';
+
+        setBatchProgress(prev => ({
+          ...prev,
+          current: moved + failed + 1,
+          currentItem: `Moving: ${itemName || 'Unknown'}`
+        }));
 
         if (type === 'folder') {
           if (isSupabaseAvailable()) {
@@ -515,10 +582,23 @@ export default function MemoryPanel() {
       }
     }
 
-    alert(`✅ Moved ${moved} items${failed > 0 ? `, ${failed} failed` : ''}`);
+    setBatchProgress({
+      isProcessing: false,
+      operation: 'move',
+      current: moved,
+      total: selectedItems.size,
+      currentItem: 'Move complete!',
+      status: failed > 0 ? 'error' : 'success',
+      message: `Moved ${moved} items${failed > 0 ? `, ${failed} failed` : ''}`
+    });
+
     setSelectedItems(new Set());
     await loadData();
-  }, [selectedItems, folders, user?.id]);
+
+    setTimeout(() => {
+      setBatchProgress(prev => ({ ...prev, isProcessing: false, message: undefined }));
+    }, 2000);
+  }, [selectedItems, folders, memories, user?.id]);
 
   const handleSplitMemory = useCallback(async (memory: Memory) => {
     if (!user?.id) return;
@@ -868,20 +948,18 @@ export default function MemoryPanel() {
           }));
 
           // Get content based on file type
-          let content: string;
-          const lowerFileName = fileName.toLowerCase();
+          let content: string | null;
+          const blob = await zipEntry.async('blob');
 
-          if (lowerFileName.endsWith('.txt') || lowerFileName.endsWith('.md')) {
-            content = await zipEntry.async('text');
-          } else if (lowerFileName.endsWith('.html')) {
-            const html = await zipEntry.async('text');
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            content = doc.body.textContent || doc.body.innerText || '';
-          } else {
-            // For other files, just store file info
-            const blob = await zipEntry.async('blob');
-            content = `📄 File: ${fileName}\nSize: ${blob.size} bytes\nType: ${blob.type || 'unknown'}\n\nImported from ZIP. Original content not text-based.`;
+          // Convert blob to File object for extraction
+          const file = new File([blob], fileName, { type: blob.type });
+
+          // Use the existing extractFileContent function which supports PDFs, HTML, and text
+          content = await extractFileContent(file);
+
+          // If extraction failed or returned null, use placeholder
+          if (!content) {
+            content = `📄 File: ${fileName}\nSize: ${blob.size} bytes\nType: ${blob.type || 'unknown'}\n\nImported from ZIP. Content extraction failed or file type not supported.`;
           }
 
           // Determine parent folder (remove trailing slash if present)
@@ -924,10 +1002,7 @@ export default function MemoryPanel() {
         message: `Successfully imported ${imported} items${failed > 0 ? `, ${failed} failed` : ''}`
       });
 
-      // Reload data to refresh tree
-      await loadData();
-
-      // Auto-expand newly imported folders
+      // Auto-expand newly imported folders BEFORE reloading data
       if (newFolderIds.length > 0) {
         setExpandedFolders(prev => {
           const newExpanded = new Set(prev);
@@ -936,6 +1011,9 @@ export default function MemoryPanel() {
         });
         console.log(`✓ Auto-expanded ${newFolderIds.length} imported folders`);
       }
+
+      // Reload data to refresh tree (this will call buildTreeNodes with expanded folders)
+      await loadData();
 
       // Reset file input
       if (zipInputRef.current) {
@@ -1863,6 +1941,163 @@ export default function MemoryPanel() {
               style={{
                 padding: '8px 24px',
                 background: importProgress.status === 'success' ? '#22c55e' : '#ef4444',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer'
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Operation Progress Modal */}
+      {batchProgress.isProcessing && batchProgress.status === 'processing' && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: 'var(--darker-bg)',
+            border: '2px solid var(--teal-bright)',
+            borderRadius: '16px',
+            padding: '32px',
+            minWidth: '400px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)'
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '16px',
+              marginBottom: '24px'
+            }}>
+              {/* Animated spinner */}
+              <div style={{
+                width: '24px',
+                height: '24px',
+                border: '3px solid rgba(64, 224, 208, 0.2)',
+                borderTop: '3px solid var(--teal-bright)',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }} />
+              <h3 style={{
+                fontSize: '20px',
+                fontWeight: '600',
+                color: 'var(--gray-light)',
+                margin: 0
+              }}>
+                {batchProgress.operation === 'delete' ? 'Deleting Items' : 'Moving Items'}
+              </h3>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <div style={{
+                color: 'var(--gray-med)',
+                fontSize: '14px',
+                marginBottom: '8px'
+              }}>
+                {batchProgress.currentItem}
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                fontSize: '12px',
+                color: 'var(--gray-dark)',
+                marginBottom: '8px'
+              }}>
+                <span>Progress</span>
+                <span>{batchProgress.current} / {batchProgress.total}</span>
+              </div>
+              {/* Progress bar */}
+              <div style={{
+                width: '100%',
+                height: '8px',
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '4px',
+                overflow: 'hidden'
+              }}>
+                <div style={{
+                  width: `${(batchProgress.current / batchProgress.total) * 100}%`,
+                  height: '100%',
+                  background: 'linear-gradient(90deg, var(--teal-bright), #22c55e)',
+                  transition: 'width 0.3s ease',
+                  borderRadius: '4px'
+                }} />
+              </div>
+            </div>
+
+            <div style={{
+              fontSize: '12px',
+              color: 'var(--gray-dark)',
+              textAlign: 'center'
+            }}>
+              Please wait while we {batchProgress.operation === 'delete' ? 'delete' : 'move'} your items...
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch Operation Complete/Error Modal */}
+      {!batchProgress.isProcessing && batchProgress.message && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.8)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999
+        }}>
+          <div style={{
+            background: 'var(--darker-bg)',
+            border: `2px solid ${batchProgress.status === 'success' ? '#22c55e' : '#ef4444'}`,
+            borderRadius: '16px',
+            padding: '32px',
+            minWidth: '400px',
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.5)',
+            textAlign: 'center'
+          }}>
+            <div style={{
+              fontSize: '48px',
+              marginBottom: '16px'
+            }}>
+              {batchProgress.status === 'success' ? '✅' : '⚠️'}
+            </div>
+            <h3 style={{
+              fontSize: '20px',
+              fontWeight: '600',
+              color: 'var(--gray-light)',
+              marginBottom: '12px'
+            }}>
+              {batchProgress.currentItem}
+            </h3>
+            <p style={{
+              fontSize: '14px',
+              color: 'var(--gray-med)',
+              marginBottom: '24px'
+            }}>
+              {batchProgress.message}
+            </p>
+            <button
+              onClick={() => setBatchProgress(prev => ({ ...prev, message: undefined }))}
+              style={{
+                padding: '8px 24px',
+                background: batchProgress.status === 'success' ? '#22c55e' : '#ef4444',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '6px',
