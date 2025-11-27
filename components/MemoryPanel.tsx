@@ -11,9 +11,11 @@ import FolderTree from './FolderTree';
 import MemoryEditor from './MemoryEditor';
 import type { MemoryView, MemoryPanelState, Memory, Folder, TreeNode } from '@/types/memory';
 import JSZip from 'jszip';
+import { useI18n } from '@/lib/i18n';
 
 export default function MemoryPanel() {
   const { user } = useAuth();
+  const { t } = useI18n();
   
   // Check if Supabase is available and configured
   const isSupabaseAvailable = () => {
@@ -1755,7 +1757,7 @@ export default function MemoryPanel() {
               <div style={{ position: 'relative', marginBottom: '24px' }}>
                 <input
                   type="text"
-                  placeholder="Search titles, content, and tags..."
+                  placeholder={t('memory.searchPlaceholder')}
                   value={state.searchQuery}
                   onChange={(e) => setState(prev => ({ ...prev, searchQuery: e.target.value }))}
                   style={{

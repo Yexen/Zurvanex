@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { PUTER_IMAGE_MODELS } from '@/lib/puter';
+import { useI18n } from '@/lib/i18n';
 
 interface GuidelinesModalProps {
   isOpen: boolean;
@@ -12,6 +13,7 @@ type TabType = 'guidelines' | 'commands';
 
 export default function GuidelinesModal({ isOpen, onClose }: GuidelinesModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('commands');
+  const { t } = useI18n();
 
   if (!isOpen) return null;
 
@@ -71,7 +73,7 @@ export default function GuidelinesModal({ isOpen, onClose }: GuidelinesModalProp
             <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Help & Guidelines
+            {t('help.title')}
           </h2>
           <button
             onClick={onClose}

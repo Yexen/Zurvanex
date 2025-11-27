@@ -1069,6 +1069,17 @@ export const PUTER_MODELS = [
     isFree: true,
   },
 
+  // Together AI Models
+  {
+    id: 'togetherai:Qwen/Qwen3-235B-A22B-Thinking-2507',
+    name: 'Qwen3 235B Thinking (Free)',
+    description: 'Massive 235B reasoning model with extended thinking',
+    contextWindow: 131072,
+    hasThinkingMode: true,
+    supportsVision: false,
+    isFree: true,
+  },
+
   // Legacy models (keeping for compatibility)
   {
     id: 'gpt-5',
