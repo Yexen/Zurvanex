@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import UserProfile from './UserProfile';
 import { useUserPreferencesContext } from '@/contexts/UserPreferencesContext';
 import SettingsExtended from '@/components/SettingsExtended';
+import { useI18n } from '@/lib/i18n';
 
 interface SettingsProps {
   isOpen: boolean;
@@ -14,7 +15,8 @@ interface SettingsProps {
 export default function Settings({ isOpen, onClose }: SettingsProps) {
   const { user } = useAuth();
   const { preferences, loading, updatePreferences, updateNickname, updateBio, updateNotificationSettings, updatePrivacySettings } = useUserPreferencesContext();
-  
+  const { t } = useI18n();
+
   const [activeTab, setActiveTab] = useState('profile');
   const [formData, setFormData] = useState({
     nickname: '',
@@ -77,11 +79,11 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         }),
       ]);
       
-      setSaveStatus('Settings saved successfully!');
+      setSaveStatus(t('settings.savedSuccessfully'));
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (error) {
       console.error('Error saving settings:', error);
-      setSaveStatus('Failed to save settings. Please try again.');
+      setSaveStatus(t('settings.saveFailed'));
     } finally {
       setSaving(false);
     }
@@ -150,7 +152,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
         style={{ maxWidth: '700px', maxHeight: '80vh' }}
       >
         <div className="search-modal-header">
-          <h3 className="search-modal-title">Settings</h3>
+          <h3 className="search-modal-title">{t('settings.title')}</h3>
           <button
             className="search-modal-close"
             onClick={onClose}
@@ -209,7 +211,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
           <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
             {loading ? (
               <div style={{ textAlign: 'center', padding: '40px' }}>
-                <div style={{ color: 'var(--gray-med)' }}>Loading preferences...</div>
+                <div style={{ color: 'var(--gray-med)' }}>{t('common.loading')}</div>
               </div>
             ) : (
               <>
@@ -685,7 +687,7 @@ export default function Settings({ isOpen, onClose }: SettingsProps) {
                         transition: 'all 0.2s',
                       }}
                     >
-                      {saving ? 'Saving...' : 'Save Changes'}
+                      {saving ? t('settings.saving') : t('common.save')}
                     </button>
                   </div>
                 </div>

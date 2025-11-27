@@ -4,9 +4,11 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { debugGoogleAuth } from '@/lib/authDebug';
+import { useI18n } from '@/lib/i18n';
 
 export default function Login() {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
+  const { t } = useI18n();
   const router = useRouter();
 
   const [email, setEmail] = useState('');
@@ -32,7 +34,7 @@ export default function Login() {
     e.preventDefault();
 
     if (!email || !password) {
-      setError('Please enter email and password');
+      setError(t('auth.errors.enterEmailPassword'));
       return;
     }
 
@@ -49,14 +51,14 @@ export default function Login() {
       router.push('/');
     } catch (err: any) {
       const errorMessage = err.code === 'auth/user-not-found'
-        ? 'No account found with this email'
+        ? t('auth.errors.noAccount')
         : err.code === 'auth/wrong-password'
-        ? 'Incorrect password'
+        ? t('auth.errors.wrongPassword')
         : err.code === 'auth/email-already-in-use'
-        ? 'Email already in use'
+        ? t('auth.errors.emailInUse')
         : err.code === 'auth/weak-password'
-        ? 'Password should be at least 6 characters'
-        : err.message || 'Authentication failed';
+        ? t('auth.errors.weakPassword')
+        : err.message || t('auth.errors.authFailed');
 
       setError(errorMessage);
     } finally {
@@ -78,7 +80,7 @@ export default function Login() {
             Zurvânex
           </h1>
           <p className="text-sm mt-2" style={{ color: 'var(--gray-light)' }}>
-            {isSignUp ? 'Create your account' : 'Sign in to continue'}
+            {isSignUp ? t('auth.createAccount') : t('auth.signInToContinue')}
           </p>
         </div>
 
@@ -112,7 +114,7 @@ export default function Login() {
             <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
             <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          Continue with Google
+          {t('auth.continueWithGoogle')}
         </button>
 
         {/* Divider */}
@@ -131,7 +133,7 @@ export default function Login() {
         <form onSubmit={handleEmailAuth} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium mb-2" style={{ color: 'var(--gray-med)' }}>
-              Email
+              {t('auth.email')}
             </label>
             <input
               id="email"
@@ -146,14 +148,14 @@ export default function Login() {
                 color: 'var(--gray-med)',
                 outline: 'none'
               }}
-              placeholder="you@example.com"
+              placeholder={t('auth.emailPlaceholder')}
               required
             />
           </div>
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium mb-2" style={{ color: 'var(--gray-med)' }}>
-              Password
+              {t('auth.password')}
             </label>
             <input
               id="password"
@@ -168,7 +170,7 @@ export default function Login() {
                 color: 'var(--gray-med)',
                 outline: 'none'
               }}
-              placeholder="••••••••"
+              placeholder={t('auth.passwordPlaceholder')}
               required
               minLength={6}
             />
@@ -185,7 +187,7 @@ export default function Login() {
               cursor: loading ? 'not-allowed' : 'pointer'
             }}
           >
-            {loading ? 'Please wait...' : isSignUp ? 'Create Account' : 'Sign In'}
+            {loading ? t('common.loading') : isSignUp ? t('auth.signUp') : t('auth.signIn')}
           </button>
         </form>
 
@@ -206,7 +208,7 @@ export default function Login() {
               textDecoration: 'underline'
             }}
           >
-            {isSignUp ? 'Already have an account? Sign in' : "Don't have an account? Sign up"}
+            {isSignUp ? t('auth.haveAccount') : t('auth.noAccount')}
           </button>
         </div>
 

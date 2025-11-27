@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import type { Message } from '@/types';
 import PerformanceChart from './PerformanceChart';
+import { useI18n } from '@/lib/i18n';
 
 interface MessageBubbleProps {
   message: Message;
@@ -27,6 +28,7 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
   const [showInfoPopup, setShowInfoPopup] = useState(false);
   const [analysisContent, setAnalysisContent] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { t } = useI18n();
 
   const handleCopy = async () => {
     try {
@@ -337,7 +339,7 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
               <button
                 onClick={handleRegenerate}
                 className="message-action-btn"
-                title="Regenerate"
+                title={t('chat.regenerate')}
               >
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -351,7 +353,7 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
               <button
                 onClick={handleResend}
                 className="message-action-btn"
-                title="Resend"
+                title={t('chat.resend')}
               >
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
@@ -364,7 +366,7 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
             <button
               onClick={handleCopy}
               className="message-action-btn"
-              title="Copy"
+              title={t('chat.copy')}
             >
               {copied ? (
                 <>
@@ -387,7 +389,7 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
             <button
               onClick={handleBranch}
               className="message-action-btn"
-              title="Branch"
+              title={t('chat.branch')}
             >
               <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
@@ -400,7 +402,7 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
               <button
                 onClick={handleSaveMoment}
                 className="message-action-btn"
-                title="Save This Moment"
+                title={t('chat.saveThisMoment')}
               >
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
@@ -414,7 +416,7 @@ export default function MessageBubble({ message, onRegenerate, onBranch, onSaveM
               <button
                 onClick={() => setShowInfoPopup(true)}
                 className="message-action-btn"
-                title="Message Info"
+                title={t('chat.info')}
               >
                 <svg width="14" height="14" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <circle cx="12" cy="12" r="10" />

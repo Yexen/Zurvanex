@@ -3,6 +3,7 @@
 import { useState, useRef, KeyboardEvent, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserPreferencesContext } from '@/contexts/UserPreferencesContext';
+import { useI18n } from '@/lib/i18n';
 
 interface AttachedFile {
   type: 'image' | 'document' | 'video';
@@ -39,6 +40,7 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
 
   const { user } = useAuth();
   const { preferences, updatePreferences } = useUserPreferencesContext();
+  const { t } = useI18n();
 
   // Sync with persisted message when conversation changes
   useEffect(() => {
@@ -902,10 +904,7 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
             onChange={(e) => handleMessageChange(e.target.value)}
             onKeyDown={handleKeyDown}
             onInput={handleInput}
-            placeholder={message.startsWith('/') ?
-              "Type: /personalization friendly, coding enthusiast, prefer detailed explanations" :
-              "Message Zurvânex... (try: /personalization)"
-            }
+            placeholder={t('chat.messagePlaceholder')}
             disabled={disabled}
             rows={1}
             className="message-input"
@@ -945,7 +944,7 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
                 onClick={() => setShowAttachMenu(!showAttachMenu)}
                 disabled={disabled || files.length >= MAX_FILES}
                 className="action-btn"
-                title="Attach files (up to 10, max 10MB each)"
+                title={t('input.attachFiles')}
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
@@ -1068,7 +1067,7 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
             <button
               disabled={disabled}
               className="action-btn"
-              title="Voice Input (Coming Soon)"
+              title={t('input.voiceInput')}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
@@ -1083,7 +1082,7 @@ export default function ChatInput({ onSend, disabled, supportsVision, conversati
           disabled={disabled || (!message.trim() && files.length === 0)}
           className="send-btn"
         >
-          Send
+          {t('chat.send')}
         </button>
       </div>
 

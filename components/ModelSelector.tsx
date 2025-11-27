@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Model } from '@/types';
 import { usePuterAuth } from '@/hooks/usePuterAuth';
+import { useI18n } from '@/lib/i18n';
 
 interface ModelSelectorProps {
   models: Model[];
@@ -53,6 +54,7 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
   const [expandedSection, setExpandedSection] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const { t } = useI18n();
 
   // Puter authentication
   const { isSignedIn: isPuterSignedIn, isLoading: isPuterLoading, signIn: puterSignIn, user: puterUser } = usePuterAuth();
@@ -284,7 +286,7 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
       >
         <span style={{ display: 'flex', alignItems: 'center' }}>
           <span>
-            {currentModel ? currentModel.name : 'Select a model...'}
+            {currentModel ? currentModel.name : t('models.selectModel')}
             {currentModel?.contextWindow && ` [${formatContextWindow(currentModel.contextWindow)}]`}
           </span>
           {currentModel?.hasThinkingMode && <BrainIcon />}
@@ -342,7 +344,7 @@ export default function ModelSelector({ models, selectedModel, onSelectModel }: 
                 }}
               >
                 <span style={{ display: 'flex', alignItems: 'center' }}>
-                  <PuterIcon /> 🔥 Free Models (Puter)
+                  <PuterIcon /> 🔥 {t('models.freeModels')} (Puter)
                 </span>
                 {/* Puter connection status */}
                 {isPuterLoading ? (
